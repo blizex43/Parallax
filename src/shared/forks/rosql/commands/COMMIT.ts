@@ -38,7 +38,7 @@ export class COMMITQuery implements RoSQLQueryCommandsFunctions {
 		const commitDate = DateTime.now().ToIsoDate();
 		const commitName = input.values.isEmpty() ? appendWithSha256() : input.values[0];
 		await manager.databaseMethods.updateAsync<Record<string, DataFileType[]>>(
-			`${manager.configuration.commitPrefix}${input.tableName}`,
+			`${input.tableName}`,
 			(previousCommit, previousMetadata) => {
 				previousCommit ??= <Record<string, DataFileType[]>>{};
 				if (!previousMetadata)
@@ -49,6 +49,7 @@ export class COMMITQuery implements RoSQLQueryCommandsFunctions {
 				previousCommit[commitName] = existingTable;
 				return [previousCommit, previousMetadata];
 			},
+			{ prefix: manager.configuration.commitPrefix, useMetadata: true },
 		);
 		return infoFormat(
 			`Table '${input.tableName}' has been backed up (commited) successfully with the alias [${commitName}].`,

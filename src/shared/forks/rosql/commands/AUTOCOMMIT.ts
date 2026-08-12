@@ -27,13 +27,14 @@ export class AUTOCOMMITQuery implements RoSQLQueryCommandsFunctions {
 
 	public async do(manager: RoSQLManager, input: SQLParsedReturns): Promise<unknown> {
 		await manager.databaseMethods.updateAsync<ROSQLOptionsArchitecture>(
-			`${manager.configuration.metadataPrefix}${input.tableName}`,
+			`${input.tableName}`,
 			(previous) => {
 				previous ??= <ROSQLOptionsArchitecture>{};
 				previous[manager.configuration.autocommitName] = input.values[0] === "ON" ? true : false;
 				previous[manager.configuration.autocommitIntervalName] = DateTime.now().ToIsoDate();
 				return [previous];
 			},
+			{ prefix: manager.configuration.metadataPrefix, useMetadata: false },
 		);
 		return infoFormat(`Table '${input.tableName}' has successfully written AUTOCOMMIT to options.`);
 	}
