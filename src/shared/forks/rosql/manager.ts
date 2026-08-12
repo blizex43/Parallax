@@ -241,14 +241,16 @@ export abstract class RoSQLManager extends RoSQLParser {
 
 	private readAndActionConfig(): void {
 		if (this.configuration.allowAutoDataManagement && this.configuration.allowAutoDataServerShutdownBackup) {
-			game.BindToClose(() => {
-				for (const player of Players.GetPlayers()) {
-					if (this.playerTable.has(player)) {
-						this.savePlayerData(player).catch((err) => {
-							warn(`Failed to save data for player ${player.Name} on server shutdown: ${err}`);
-						});
-					}
-				}
+			game.BindToClose(async () => {
+				const promises: Promise<unknown>[] = [];
+				for (const player of Players.GetPlayers())
+					if (this.playerTable.has(player))
+						promises.push(
+							this.savePlayerData(player).catch((err) => {
+								warn(`Failed to save data for player ${player.Name} on server shutdown: ${err}`);
+							}),
+						);
+				await Promise.all(promises);
 			});
 		}
 	}

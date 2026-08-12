@@ -18,6 +18,7 @@ export const isTrail = t.instanceIsA("Trail");
 export const isPlayer = t.instanceIsA("Player");
 export const isDecal = t.instanceIsA("Decal");
 export const isSound = t.instanceIsA("Sound");
+export const isAccessory = t.instanceIsA("Accessory");
 // Natives
 export const isBoolean = t.boolean;
 export const isNumber = t.number;

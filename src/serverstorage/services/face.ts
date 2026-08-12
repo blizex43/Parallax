@@ -11,7 +11,7 @@ import { BlinkDurationTime, BlinkIntervalRange, EyeClanColors } from "shared/enu
 import Object from "@rbxts/object-utils";
 @Service()
 export class FaceService implements OnCharacterDataLoad, OnInit, OnCharacterRemove {
-	private readonly changableKeys: PlayerDataKeys[] = ["eyes", "eyeColor", "nose", "marking", "mouth"];
+	private readonly changableKeys: PlayerDataKeys[] = ["eyes", "eyeColor", "nose", "marking", "mouth", "glowingEyes"];
 	private readonly parentGenderFolder = ServerStorage.Assets.Faces;
 	private readonly maleAssetFolder = this.parentGenderFolder.Male;
 	private readonly femaleAssetFolder = this.parentGenderFolder.Female;

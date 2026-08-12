@@ -1,16 +1,22 @@
+import { Worker } from "shared/classes/worker";
 import type { PlayerData } from "shared/data-models/player-data";
-import { CharacterDependency } from "shared/structs/linked-dependency";
-import { promisifyEvent } from "shared/utility/promises";
+import type { CharacterDependency } from "shared/structs/linked-dependency";
+import { isAccessory } from "shared/utility/t-isA";
+const worker = new Worker("accessory_remover");
 
 export class AccessoryDependency implements CharacterDependency {
 	public readonly priority: number = 5;
-	async onWrite(player: Player, _: PlayerData, character: CharacterModel): Promise<void> {
-		if (!player.HasAppearanceLoaded())
-			await promisifyEvent<[character: CharacterModel]>(player.CharacterAppearanceLoaded);
-		task.defer(() => {
-			this.removeAllAccessories(character.Humanoid);
-			this.removeOthers(character);
+	constructor() {
+		worker.startJob(async (player: Player, character: CharacterModel) => {
+			await this.waitForCharacterAppearance(player, character);
+			task.defer(() => {
+				this.removeOthers(character);
+				this.removeAllAccessories(character.Humanoid);
+			});
 		});
+	}
+	async onWrite(player: Player, _: PlayerData, character: CharacterModel): Promise<void> {
+		worker.add(player, character);
 	}
 
 	private removeAllAccessories(humanoid: Humanoid): void {
@@ -18,5 +24,24 @@ export class AccessoryDependency implements CharacterDependency {
 	}
 	private removeOthers(character: CharacterModel): void {
 		character.Head.Mesh.TextureId = "";
+	}
+
+	private async waitForCharacterAppearance(player: Player, character: CharacterModel): Promise<Model> {
+		if (!player.HasAppearanceLoaded()) {
+			player.CharacterAppearanceLoaded.Wait();
+		}
+		let lastAccessoryCount = -1;
+		for (let i = 0; i < 10; i++) {
+			const accessories = character.GetChildren().filter((instance) => isAccessory(instance));
+
+			if (accessories.size() === lastAccessoryCount) {
+				return character;
+			}
+
+			lastAccessoryCount = accessories.size();
+			task.wait();
+		}
+
+		return character;
 	}
 }

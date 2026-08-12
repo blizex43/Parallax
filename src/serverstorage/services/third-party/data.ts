@@ -101,8 +101,8 @@ export class DataService implements OnInit, OnPlayerJoin, OnPlayerLeave, LogStar
 
 	public async onPlayerLeave(player: Player): Promise<void> {
 		if (!this.rosql) return;
-		const data = this.get(player);
 		this.delSnapshot(player);
+		const data = this.get(player);
 		if (!data) {
 			warn(`Skipping save for ${player.Name} — data never initialized`);
 			return;
