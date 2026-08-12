@@ -17,13 +17,11 @@ import {
 	INITIAL_PSUEDO_DATA,
 	type PlayerDataKeys,
 } from "shared/data-models/player-data";
-import { stringHas } from "shared/utility/strings";
-import ColorUtils from "@rbxts/colour-utils";
-import { isColor3, isNull, isString } from "shared/utility/t-isA";
+import { isNull } from "shared/utility/t-isA";
 import Log from "shared/log";
 import Object from "@rbxts/object-utils";
 import { RoSQL } from "shared/forks/rosql";
-import SQLDOTENV from "serverstorage/secret/sql.env";
+import DOTENV from "serverstorage/secret/sql.env";
 import { formatToFirebase, formatToGame } from "shared/utility/data";
 const FirebaseCreated = new Signal();
 export async function getFirebaseInfo(): Promise<[string, string]> {
@@ -57,7 +55,7 @@ export class DataService implements OnInit, OnPlayerJoin, OnPlayerLeave, LogStar
 	@SpawnTask()
 	public async onInit(): Promise<void> {
 		this.firebase = new Firebase(...(await getFirebaseInfo()));
-		this.rosql = await RoSQL.fromDotEnv(SQLDOTENV, this.firebase, INITIAL_DATA, {
+		this.rosql = await RoSQL.fromDotEnv(DOTENV, this.firebase, INITIAL_DATA, {
 			encryption: <never>formatToFirebase,
 			decryption: <never>formatToGame,
 		});
