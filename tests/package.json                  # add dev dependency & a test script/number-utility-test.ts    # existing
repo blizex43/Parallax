@@ -1,0 +1,8 @@
+{
+  "devDependencies": {
+    "@rbxts/testez": "^0.1.0"
+  },
+  "scripts": {
+    "test": "run-tests.server.ts"
+  }
+}

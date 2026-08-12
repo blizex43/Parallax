@@ -1,0 +1,40 @@
+{
+  "devDependencies": {
+    "@rbxts/testez": "^0.1.0"
+  },
+  "scripts": {
+    "test": "run-tests.server.ts"
+  }
+} 
+
+import { TestEZ, run } from "@rbxts/testez";
+
+run(); 
+
+test("hello world", () => {
+    expect("Hello, World!").to.equal("Hello, World!");
+}); 
+
+// Ensure existing test files are compatible with @rbxts/testez
+// number-utility-test.ts
+import { TestEZ, run } from "@rbxts/testez";
+
+test("number utility test", () => {
+    expect(1 + 1).to.equal(2);
+});
+
+// string-utility-test.ts
+import { TestEZ, run } from "@rbxts/testez";
+
+test("string utility test", () => {
+    expect("Hello" + " " + "World").to.equal("Hello World");
+});
+
+// safe-cast-test.ts
+import { TestEZ, run } from "@rbxts/testez";
+
+test("safe cast test", () => {
+    const value: unknown = "test";
+    const castedValue = value as string;
+    expect(castedValue).to.equal("test");
+});
