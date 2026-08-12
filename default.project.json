@@ -1,0 +1,70 @@
+{
+  "name": "FlameworkGame",
+  "globIgnorePaths": [
+    "**/package.json",
+    "**/tsconfig.json"
+  ],
+  "tree": {
+    "$className": "DataModel",
+    "ServerStorage": {
+      "$className": "ServerStorage",
+      "Modules": {
+        "$path": "dist/serverstorage"
+      },
+      "Tests": {
+        "$path": "dist/tests"
+      }
+    },
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "$path": "dist/server"
+
+    },
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      
+      "Modules": {
+        "$path": "dist/shared",
+        "rbxts_include": {
+        "$path": "include",
+        "node_modules": {
+          "$className": "Folder",
+          "@rbxts": {
+            "$path": "node_modules/@rbxts"
+          },
+          "@flamework": {
+            "$path": "node_modules/@flamework"
+          },
+          "@zilibobi": {
+            "$path": "node_modules/@zilibobi"
+          }
+        }
+      }
+      },
+      "ModuleTests": {
+        "$path": "dist/scripts"
+      }
+    },
+    "StarterPlayer": {
+      "$className": "StarterPlayer",
+      "StarterPlayerScripts": {
+        "$className": "StarterPlayerScripts",
+        "PlayerModules": {
+          "$path": "dist/client"
+        }
+      }
+    },
+    "Workspace": {
+      "$className": "Workspace",
+      "$properties": {
+        "FilteringEnabled": true
+      }
+    },
+    "SoundService": {
+      "$className": "SoundService",
+      "$properties": {
+        "RespectFilteringEnabled": true
+      }
+    }
+  }
+}

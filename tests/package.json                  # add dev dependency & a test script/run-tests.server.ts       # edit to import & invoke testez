@@ -1,0 +1,24 @@
+{
+  "devDependencies": {
+    "@rbxts/testez": "^0.1.0"
+  },
+  "scripts": {
+    "test": "run-tests.server.ts"
+  }
+}
+
+import { runTests } from '@rbxts/testez';
+
+runTests(); 
+
+test('hello world', () => {
+    expect(true).toBe(true);
+});
+
+test('hello world', () => {
+    expect(true).toBe(true);
+});
+
+test('hello world', () => {
+    expect(true).toBe(true);
+});
