@@ -32,6 +32,8 @@ export const defaultSQLConfig: DatastoreSQLConfig = <const>{
 	allowDataEncryption: true,
 	allowAutoDataManagement: true,
 	allowAutoDataServerShutdownBackup: true,
+	allowInitialCommitFromAutoCommitFunction: true,
+	initialAutocommitAlias: "init",
 	primaryKeyName: "userId",
 	databaseName: "nan",
 	commitPrefix: "READONLY-COMMIT-",

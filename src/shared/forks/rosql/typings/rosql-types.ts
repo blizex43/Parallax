@@ -26,9 +26,14 @@ export type RoSQLGetter = AcceptableDatabaseMethods["get"];
 export type RoSQLSetter = AcceptableDatabaseMethods["set"];
 export type RoSQLRemover = AcceptableDatabaseMethods["remove"];
 export type RoSQLUpdater = AcceptableDatabaseMethods["updateAsync"];
+export interface UpdateAsyncProperties {
+	prefix: string;
+	useMetadata: boolean;
+}
 export type UpdateAsyncFunctionType = <T, M extends ROSQLOptionsArchitecture = ROSQLOptionsArchitecture>(
 	key: string,
 	transformer: (oldData: Maybe<T>, oldMetaData?: Maybe<M>) => [Maybe<T>?, Maybe<M>?],
+	properties?: UpdateAsyncProperties,
 ) => Promise<T | undefined>;
 
 export type QuerySelectType = ILazy<Record<RoSQLQueryCommandsType, RoSQLQueryCommandsFunctions>>;
@@ -71,6 +76,8 @@ export interface DatastoreSQLConfig {
 	allowDataDecryption: boolean;
 	allowAutoDataManagement: boolean;
 	allowAutoDataServerShutdownBackup: boolean;
+	allowInitialCommitFromAutoCommitFunction: boolean;
+	initialAutocommitAlias: string;
 	primaryKeyName: string;
 	databaseName: string;
 	commitPrefix: string;

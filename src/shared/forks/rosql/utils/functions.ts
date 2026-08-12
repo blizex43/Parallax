@@ -8,6 +8,7 @@ import type {
 	ROSQLOptionsArchitecture,
 	RoSQLSetter,
 	UpdateAsyncFunctionType,
+	UpdateAsyncProperties,
 } from "../typings/rosql-types";
 import { allowedConditionSymbols, allowedNativeType, allowedSQLKeywords, defaultSQLConfig } from "../enums";
 import { LocalHost } from "./localhost";
@@ -106,14 +107,19 @@ export async function constructCustomUpdateAsync(
 	return async <T, M>(
 		key: string,
 		transformer: (oldData: Maybe<T>, oldMetaData?: Maybe<M>) => [Maybe<T>?, Maybe<M>?],
+		properties: UpdateAsyncProperties = {
+			useMetadata: true,
+			prefix: "",
+		},
 	): Promise<Maybe<T>> => {
 		const identification = appendWithSha256();
-		const canUseMetaData = configuration.allowDataDecryption && configuration.allowDataEncryption;
+		const canUseMetaData =
+			configuration.allowDataDecryption && configuration.allowDataEncryption && properties.useMetadata;
 		while (true) {
-			let queueOwner: string[] = [identification];
 			let acquired = true;
 			if (!serverEligibleForQueueBypass()) {
 				try {
+					let queueOwner: string[] = [identification];
 					queueOwner = await LocalHost.updateHost(
 						host,
 						configuration.localhostQueueName,
@@ -134,7 +140,7 @@ export async function constructCustomUpdateAsync(
 
 			if (acquired) {
 				try {
-					const oldData = <Maybe<T>>((await get<T>(key)) ?? []);
+					const oldData = <Maybe<T>>((await get<T>(`${properties.prefix}${key}`)) ?? []);
 					const oldMetaData = <Maybe<M>>(
 						(canUseMetaData ? ((await get<M>(`${configuration.metadataPrefix}${key}`)) ?? {}) : undefined)
 					);
@@ -142,7 +148,7 @@ export async function constructCustomUpdateAsync(
 					let [newData, newMetaData] = transformer(oldData, oldMetaData);
 					if (newData && manager.encryption!)
 						for (const data of <Record<string, unknown>[]>newData) manager.encryption(data);
-					await set(key, newData);
+					await set(`${properties.prefix}${key}`, newData);
 					if (newMetaData && canUseMetaData) await set(`${configuration.metadataPrefix}${key}`, newMetaData);
 					return newData;
 				} finally {
@@ -158,7 +164,7 @@ export async function constructCustomUpdateAsync(
 							},
 							configuration.localhostQueueTimeout,
 						);
-						print(`[ROSQL] queue cleanup finished for ${key}`, result);
+						print(`[ROSQL] queue cleanup finished for ${properties.prefix}${key}`, result);
 					}
 				}
 			}

@@ -20,7 +20,7 @@ import { errorFormat } from "./utils/logger";
 import { checkMatchCondition } from "./utils/parse";
 import { RoSQLResolver } from "./utils/resolver";
 import Signal from "@rbxts/signal";
-import { deepCopy } from "@rbxts/object-utils";
+import Object, { deepCopy } from "@rbxts/object-utils";
 import { Players } from "@rbxts/services";
 import { ReconcileUnadded } from "shared/utility/instance";
 
@@ -217,6 +217,17 @@ export abstract class RoSQLManager extends RoSQLParser {
 				: undefined;
 		const lastTick = lastCommit ? DateTime.fromIsoDate(<string>lastCommit)?.UnixTimestampMillis : now();
 		const dueTick = lastTick! + 3_600_000 * this.configuration.autocommitInterval;
+		if (!(this.configuration.autocommitIntervalName in existing)) {
+			if (this.configuration.allowInitialCommitFromAutoCommitFunction)
+				await this.commit(tableName, this.configuration.initialAutocommitAlias);
+			else
+				await this.databaseMethods.set(
+					`${this.configuration.metadataPrefix}${tableName}`,
+					Object.assign(existing, {
+						[this.configuration.autocommitIntervalName]: DateTime.now().ToIsoDate(),
+					}),
+				);
+		}
 		task.wait(math.max(dueTick - now(), 0));
 		await this.commit(tableName);
 		this.queues.autocommit = false;
