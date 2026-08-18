@@ -3,11 +3,11 @@ import type { PlayerData } from "shared/data-models/player-data";
 import type { AttackContext, AttackDefinition, AttackLiterals, HitWindow } from "shared/structs/attack";
 import type { NPCType } from "shared/structs/npc";
 export interface OnPlayerLeave {
-	onPlayerLeave(player: Player): void;
+	onPlayerLeave(player: Player): void | Promise<void>;
 }
 
 export interface OnPlayerJoin {
-	onPlayerJoin(player: Player): void;
+	onPlayerJoin(player: Player): void | Promise<void>;
 }
 
 export interface OnCharacterDataLoad {

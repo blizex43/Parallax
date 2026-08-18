@@ -50,8 +50,10 @@ export class SELECTQuery implements RoSQLQueryCommandsFunctions {
 			if (match) {
 				// print("Found Match: ", value);
 				const recordValue = <Record<string, unknown>>(<unknown>value);
-				if (input.columns[0] === "*") results.push(manager.decryption(recordValue));
-				else {
+				if (input.columns[0] === "*") {
+					results.push(manager.decryption(recordValue));
+					break;
+				} else {
 					const matchedResult: Record<string, unknown> = {};
 					for (const [, column] of ipairs(input.columns))
 						if (column in recordValue) matchedResult[column] = recordValue[column];
@@ -59,7 +61,7 @@ export class SELECTQuery implements RoSQLQueryCommandsFunctions {
 				}
 			}
 		}
-
+		print(results);
 		return results;
 	}
 

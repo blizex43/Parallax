@@ -17,8 +17,24 @@ export class PlayersService implements OnStart {
 			for (const listener of joinListeners) task.spawn(() => listener.onPlayerJoin(player));
 		});
 
-		Players.PlayerRemoving.Connect((player) => {
-			for (const listener of leaveListeners) task.spawn(() => listener.onPlayerLeave(player));
+		Players.PlayerRemoving.Connect(async (player) => {
+			const promises: Promise<void>[] = [];
+			for (const listener of leaveListeners) {
+				try {
+					const result = listener.onPlayerLeave(player);
+					if (result)
+						promises.push(
+							result.catch((err) => {
+								warn(
+									`[PLAYERS] PlayerRemoving listener failed for ${player.Name} (${player.UserId}): ${err}`,
+								);
+							}),
+						);
+				} catch (err) {
+					warn(`[PLAYERS] PlayerRemoving listener failed for ${player.Name} (${player.UserId}): ${err}`);
+				}
+			}
+			await Promise.all(promises);
 		});
 
 		for (const player of Players.GetPlayers())
