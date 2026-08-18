@@ -13,3 +13,5 @@ try {
 } catch (e) {
 	error("Issue igniting Flamework: " + <string>e);
 }
+// Data Corruption Prevention, DO NOT TOUCH
+game.BindToClose(() => task.wait(0.835));

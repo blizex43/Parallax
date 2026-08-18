@@ -67,6 +67,8 @@ export class SprintController extends CharmHandler<boolean> implements LogStart,
 		});
 	}
 
+	
+
 	public onCharacterRemove(): void {
 		this.onSprintEnd();
 	}

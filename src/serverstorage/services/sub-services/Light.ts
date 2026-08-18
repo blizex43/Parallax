@@ -17,7 +17,7 @@ export class Light extends AttackExtendable implements OnMoveClassInvoked {
 	private readonly dataMap = new Map<CharacterModel, LightData>();
 	public cancellable = undefined;
 	private readonly config = <const>{
-		maxIndex: 4,
+		maxIndex: 5,
 		endCooldown: 1.3,
 		finalDebounce: 0.7,
 	};
@@ -30,6 +30,7 @@ export class Light extends AttackExtendable implements OnMoveClassInvoked {
 		if (!track || track.playing()) return;
 		const windupTime = this.getWindupTime(context);
 		const maxIndex = dataMap.index === dataMap.maxIndex;
+		print(dataMap.index, maxIndex);
 		this.runEffects(context, track);
 		this.windup(context, windupTime);
 		task.delay(windupTime * 0.95, () => this.active(context, true));

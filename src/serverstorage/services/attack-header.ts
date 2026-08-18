@@ -32,7 +32,7 @@ export class AttackHeaderService {
 		private readonly database: DataService,
 		private readonly guid: GUIDService,
 		private readonly wsm: WebsocketManagementService,
-	) { }
+	) {}
 
 	@LinkSerializedRemote(Events.game.attack, Serializers.attack)
 	public async onAttackRecieved(player: Player, packet: AttackPacket): Promise<void> {
@@ -126,7 +126,6 @@ export class AttackHeaderService {
 			data,
 			scaling,
 		};
-
 		return this.addAttackToCache(context, handler.invoked(context));
 	}
 

@@ -40,6 +40,7 @@ export abstract class RoSQLManager extends RoSQLParser {
 	protected readonly listeners: RoSQLManagerListeners = { coroutine: new Signal() };
 	protected readonly connections: Record<number, RBXScriptConnection> = {};
 	private readonly playerTable: Map<Player, DataFileType> = new Map();
+	private readonly activeSavePromises = new Set<Promise<void>>();
 	private readonly queues = {
 		autocommit: false,
 	};
@@ -82,7 +83,7 @@ export abstract class RoSQLManager extends RoSQLParser {
 				symbol: "=",
 			},
 		}).catch((err) => {
-			print(`FOUND ERROR: ${err}`);
+			warn(`FOUND ERROR: ${err}`);
 			return [{}, false, `Failed to fetch data for player ${player.Name}: ${err}`];
 		});
 		if (success === false) return [<D>data, <boolean>success, <string>response];
@@ -93,14 +94,31 @@ export abstract class RoSQLManager extends RoSQLParser {
 	}
 
 	public async savePlayerData(player: Player, data?: object): Promise<void> {
-		data ??= this.playerTable.get(player);
-		if (!data) throw errorFormat(`Player ${player.Name} is not registered.`);
-		data[<never>"userId"] = <never>player.UserId;
-		await this.updateNative(this.configuration.databaseName, data, "userId");
+		const savePromise = (async () => {
+			data ??= this.playerTable.get(player);
+			if (!data) throw errorFormat(`Player ${player.Name} is not registered.`);
+			data[<never>"userId"] = <never>player.UserId;
+			print(`[ROSQL] Saving data for ${player.Name} (${player.UserId}).`);
+			await this.updateNative(this.configuration.databaseName, data, "userId").catch((err) => error(err));
+			print(`[ROSQL] Saved data for ${player.Name} (${player.UserId}).`);
+		})();
+
+		this.activeSavePromises.add(savePromise);
+		try {
+			await savePromise;
+		} catch (err) {
+			error(err);
+		} finally {
+			this.activeSavePromises.delete(savePromise);
+		}
 	}
 
 	public async deregisterPlayer(player: Player, save: boolean): Promise<void> {
-		if (!this.playerTable.has(player)) throw errorFormat(`Player ${player.Name} is not registered.`);
+		print(`[ROSQL] deregisterPlayer called for ${player.Name} (${player.UserId}) save=${save}`);
+		if (!this.playerTable.has(player)) {
+			print(`[ROSQL] deregisterPlayer: ${player.Name} not in playerTable, skipping`);
+			return;
+		}
 		if (save) await this.savePlayerData(player);
 		this.playerTable.delete(player);
 	}
@@ -108,6 +126,13 @@ export abstract class RoSQLManager extends RoSQLParser {
 	public getPlayerData<D extends DataFileType>(player: Player): Maybe<D> {
 		return <Maybe<D>>this.playerTable.get(player);
 	}
+
+	private getActiveSavePromises(): Promise<void>[] {
+		const promises: Promise<void>[] = [];
+		for (const promise of this.activeSavePromises) promises.push(promise);
+		return promises;
+	}
+
 	public async commit(tableName: string, commitName?: string): Promise<unknown> {
 		return await this.executeCommand("COMMIT", {
 			tableName,
@@ -240,7 +265,8 @@ export abstract class RoSQLManager extends RoSQLParser {
 	}
 
 	private readAndActionConfig(): void {
-		if (this.configuration.allowAutoDataManagement && this.configuration.allowAutoDataServerShutdownBackup) {
+		print(this.configuration);
+		if (this.configuration.allowAutoDataManagement && this.configuration.allowAutoDataServerShutdownBackup)
 			game.BindToClose(async () => {
 				const promises: Promise<unknown>[] = [];
 				for (const player of Players.GetPlayers())
@@ -250,8 +276,15 @@ export abstract class RoSQLManager extends RoSQLParser {
 								warn(`Failed to save data for player ${player.Name} on server shutdown: ${err}`);
 							}),
 						);
-				await Promise.all(promises);
+				for (const promise of this.getActiveSavePromises())
+					promises.push(
+						promise.catch((err) => {
+							warn(`[ROSQL] Active save failed while BindToClose was waiting: ${err}`);
+						}),
+					);
+				print(`[ROSQL] BindToClose waiting for ${promises.size()} save(s).`);
+				await Promise.all(promises).catch((e) => error(e));
+				print("[ROSQL] BindToClose save wait finished.");
 			});
-		}
 	}
 }

@@ -1,5 +1,5 @@
 import { Service, type OnInit } from "@flamework/core";
-import { DataStoreService as Data } from "@rbxts/services";
+import { DataStoreService as Data, Players } from "@rbxts/services";
 import { Firebase } from "@rbxts/firebase";
 import Signal from "@rbxts/signal";
 import type { LogStart } from "shared/hooks";
@@ -22,7 +22,7 @@ import Log from "shared/log";
 import Object from "@rbxts/object-utils";
 import { RoSQL } from "shared/forks/rosql";
 import DOTENV from "serverstorage/secret/sql.env";
-import { formatToFirebase, formatToGame } from "shared/utility/data";
+import { formatToDatabase, formatToGame } from "shared/utility/data";
 const FirebaseCreated = new Signal();
 export async function getFirebaseInfo(): Promise<[string, string]> {
 	return new Promise((resolve, reject) => {
@@ -51,13 +51,14 @@ export class DataService implements OnInit, OnPlayerJoin, OnPlayerLeave, LogStar
 	private firebase!: Firebase;
 	private rosql!: RoSQL;
 	private readonly loadingPlayers = new Map<Player, Promise<Maybe<PlayerData>>>();
+	private readonly leavingPlayers = new Set<Player>();
 
 	@SpawnTask()
 	public async onInit(): Promise<void> {
 		this.firebase = new Firebase(...(await getFirebaseInfo()));
 		this.rosql = await RoSQL.fromDotEnv(DOTENV, this.firebase, INITIAL_DATA, {
-			encryption: <never>formatToFirebase,
-			decryption: <never>formatToGame,
+			encryption: formatToDatabase,
+			decryption: formatToGame,
 		});
 		FirebaseCreated.Fire();
 	}
@@ -100,14 +101,83 @@ export class DataService implements OnInit, OnPlayerJoin, OnPlayerLeave, LogStar
 	}
 
 	public async onPlayerLeave(player: Player): Promise<void> {
-		if (!this.rosql) return;
-		this.delSnapshot(player);
-		const data = this.get(player);
-		if (!data) {
-			warn(`Skipping save for ${player.Name} — data never initialized`);
+		if (!this.rosql) {
+			warn(`[DATA] Skipping save for ${player.Name} (${player.UserId}) because RoSQL is not initialized.`);
 			return;
 		}
-		return await this.rosql.deregisterPlayer(player, true);
+		if (this.leavingPlayers.has(player)) {
+			warn(`[DATA] Duplicate leave save ignored for ${player.Name} (${player.UserId}).`);
+			return;
+		}
+
+		this.leavingPlayers.add(player);
+
+		try {
+			const loadingPromise = this.loadingPlayers.get(player);
+			if (loadingPromise) {
+				print(`[DATA] ${player.Name} (${player.UserId}) left while data was loading; waiting before save.`);
+				try {
+					await loadingPromise;
+				} catch (err) {
+					warn(`[DATA] ${player.Name} (${player.UserId}) load failed before leave save: ${err}`);
+				}
+			}
+
+			const data = this.rosql.getPlayerData<PlayerData>(player);
+			if (!data) {
+				warn(`[DATA] Skipping save for ${player.Name} (${player.UserId}) because data was never registered.`);
+				return;
+			}
+
+			print(`[DATA] Saving ${player.Name} (${player.UserId}) on leave.`);
+			await this.rosql.deregisterPlayer(player, true).catch((err) => {
+				throw err;
+			});
+			print(`[DATA] Saved ${player.Name} (${player.UserId}) on leave.`);
+		} catch (err) {
+			warn(`[DATA] Failed to save ${player.Name} (${player.UserId}) on leave: ${err}`);
+		} finally {
+			this.delSnapshot(player);
+			this.leavingPlayers.delete(player);
+		}
+	}
+
+	private async saveLeavingPlayersOnShutdown(): Promise<void> {
+		const promises: Promise<void>[] = [];
+		for (const player of Players.GetPlayers()) {
+			if (!this.rosql.getPlayerData<PlayerData>(player)) continue;
+			promises.push(
+				(async () => {
+					const loadingPromise = this.loadingPlayers.get(player);
+					if (loadingPromise) {
+						print(
+							`[DATA] BindToClose waiting for ${player.Name} (${player.UserId}) to finish loading before shutdown save.`,
+						);
+						await loadingPromise.catch((err) => {
+							warn(
+								`[DATA] ${player.Name} (${player.UserId}) failed loading during shutdown save: ${err}`,
+							);
+						});
+					}
+
+					if (!this.rosql.getPlayerData<PlayerData>(player)) {
+						warn(
+							`[DATA] BindToClose cannot save ${player.Name} (${player.UserId}) because data is not registered.`,
+						);
+						return;
+					}
+
+					print(`[DATA] BindToClose saving player ${player.Name} (${player.UserId}).`);
+					await this.rosql.savePlayerData(player);
+					print(`[DATA] BindToClose saved player ${player.Name} (${player.UserId}).`);
+				})().catch((err) => {
+					warn(`[DATA] BindToClose failed to save player ${player.Name} (${player.UserId}): ${err}`);
+				}),
+			);
+		}
+
+		if (promises.size() > 0) print(`[DATA] BindToClose waiting for ${promises.size()} player save(s).`);
+		await Promise.all(promises);
 	}
 
 	public async getGlobal<T>(directory: string, defaultValue?: T): Promise<Maybe<T>> {

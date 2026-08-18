@@ -11,10 +11,10 @@ import type {
 	RoSQLSetter,
 	RoSQLUpdater,
 } from "../typings/rosql-types";
-import { toboolean } from "shared/utility/boolean";
 import { Firebase } from "@rbxts/firebase";
 import { constructCustomUpdateAsync } from "./functions";
 import { RoSQLManager } from "../manager";
+import { formatToDatabase, formatToGame } from "shared/utility/data";
 
 type ResolvedDatabase = [DatabaseType, RoSQLGetter, RoSQLSetter, RoSQLRemover, RoSQLUpdater];
 export class RoSQLResolver {
@@ -47,27 +47,13 @@ export class RoSQLResolver {
 
 	public getEncryption(): RoSQLEncryption {
 		return (data: Record<string, unknown>): Record<string, unknown> => {
-			for (const [key, value] of pairs(data)) {
-				data[key] = tostring(value);
-			}
-			return data;
+			return formatToDatabase(data);
 		};
 	}
 
 	public getDecryption(): RoSQLDecryption {
 		return (data: Record<string, unknown>): Record<string, unknown> => {
-			for (const [key, value] of pairs(data)) {
-				const numberValue = tonumber(value);
-				if (numberValue !== undefined) {
-					data[key] = numberValue;
-					continue;
-				}
-				const booleanValue = toboolean(value);
-				if (booleanValue !== undefined) {
-					data[key] = booleanValue;
-				}
-			}
-			return data;
+			return formatToGame(data);
 		};
 	}
 
