@@ -1,3 +1,4 @@
+import { objectSize } from "shared/utility/t-isA";
 import { allowedConditionalOperations, allowedSQLKeywords } from "../enums";
 import type {
 	ConditionalOperationsType,
@@ -171,14 +172,14 @@ export function castMetadataFunctions(
 }
 
 export function executeMetadataFunction(
-	datas: Record<string, unknown>[],
+	datas: Record<string, unknown>[] | Record<string, Record<string, unknown>>,
 	data: Record<string, unknown>,
 	func: RoSQLKeywordsType,
 	funcStore: Record<string, string>,
 ): void {
 	switch (func) {
 		case "AUTO_INCREMENT": {
-			const storeSize = datas.size() + 1;
+			const storeSize = objectSize(datas) + 1;
 			for (const [columnIndex, columnValue] of pairs(funcStore)) {
 				const accumulation = tonumber(columnValue);
 				if (!accumulation)

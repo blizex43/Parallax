@@ -4,6 +4,7 @@ import { checkMatchCondition } from "../utils/parse";
 import { objectSize } from "shared/utility/t-isA";
 import { parseConditions } from "../utils/regex-match";
 import { RoSQLManager } from "../manager";
+import { basicDataDecrypt } from "shared/utility/data";
 
 export class DELETEQuery implements RoSQLQueryCommandsFunctions {
 	constructor() {}
@@ -28,20 +29,46 @@ export class DELETEQuery implements RoSQLQueryCommandsFunctions {
 
 	public async do(manager: RoSQLManager, input: SQLParsedReturns): Promise<unknown> {
 		if (!manager.configuration.allowDelete) throw errorFormat(`DELETE is disabled.`);
-		await manager.databaseMethods.updateAsync<DataFileType[]>(input.tableName, (previous) => {
-			if (!previous) throw errorFormat(`Table '${input.tableName}' does not exist.`);
-			const filtered = <DataFileType[]>[];
-			for (const value of previous) {
-				let matches = true;
-				if (input.conditions && objectSize(input.conditions) > 0) {
-					matches = checkMatchCondition(input.conditions, value);
+		const useFastIndexing = manager.configuration.primaryKeyName;
+
+		await manager.databaseMethods.updateAsync<DataFileType[] | Record<string, unknown>>(
+			input.tableName,
+			(previous) => {
+				if (!previous) throw errorFormat(`Table '${input.tableName}' does not exist.`);
+
+				if (useFastIndexing) {
+					for (const [conditional_key, conditional_value] of pairs(input.conditions)) {
+
+						if (
+							conditional_key === manager.configuration.primaryKeyName &&
+							conditional_value.symbol === "=" &&
+							conditional_value.value in previous
+						) {
+							delete input.conditions[conditional_key];
+							delete (<Record<string, unknown>>previous)[conditional_value.value];
+							return [previous];
+						}
+					}
+				} else {
+					if ((<DataFileType[]>previous).size() === 0) throw errorFormat("All records are already deleted.");
+					const previousSize = (<DataFileType[]>previous).size();
+					(<DataFileType[]>previous).forEach((value, index) => {
+						let matches = true;
+						if (input.conditions && objectSize(input.conditions) > 0) {
+							matches = checkMatchCondition(input.conditions, value);
+						}
+						if (matches) (<DataFileType[]>previous).remove(index);
+					});
+
+					if ((<DataFileType[]>previous).size() === previousSize)
+						throw errorFormat("No matching records found to delete.");
+
+					return [previous];
 				}
-				if (!matches) filtered.push(value);
-			}
-			if (filtered.size() === previous.size()) throw errorFormat("No matching records found to delete.");
-			if (filtered.size() === 0) throw errorFormat("All records deleted.");
-			return [filtered];
-		});
+
+				return [previous];
+			},
+		);
 		return infoFormat(`Records deleted from '${input.tableName}'.`);
 	}
 

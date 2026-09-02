@@ -52,7 +52,7 @@ export class CREATEQuery implements RoSQLQueryCommandsFunctions {
 							const parameters = extractParentheses(formattedPack);
 							const isolatedPack = stripParentheses(formattedPack);
 							if (isRoSQLDataType(isolatedPack))
-								appendNativeTypeToMetaData(metaData, column, <RoSQLNativeTypesType>isolatedPack);
+								appendNativeTypeToMetaData(metaData, column, <RoSQLNativeTypesType>formattedPack);
 							else if (isRoSQLKeyword(packValue))
 								appendKeywordToMetaData(
 									metaData,

@@ -17,87 +17,87 @@ import type { ReplicationOptions } from "./classes/replicable";
 import type { SyncPayload } from "@rbxts/charm-sync";
 import type { BaseStateBlackboard } from "./structs/websocket";
 import type { ScreenshakePropertiesType } from "./structs/screen-shake";
-import { FieldOfViewProperties } from "./structs/field-of-view";
+import type { FieldOfViewProperties } from "./structs/field-of-view";
 
 type SerializedRemote = (packet: SerializedPacket) => void;
 type UnreliableSerializedRemote = Networking.Unreliable<(packet: SerializedPacket) => void>;
 
 interface ServerEvents {
 	useReplicationOptions(options: ReplicationOptions): void;
-	audio: {
+	readonly audio: {
 		replicate: SerializedRemote;
 	};
-	animation: {
+	readonly animation: {
 		replicate: SerializedRemote;
 	};
 
-	game: {
+	readonly game: {
 		attack: SerializedRemote;
 		block: SerializedRemote;
 		sprint: SerializedRemote;
 		dash: SerializedRemote;
 	};
-	effect: {
+	readonly effect: {
 		replicate: SerializedRemote;
 	};
-	asset: {
+	readonly asset: {
 		initialize(): void;
 	};
-	data: {
+	readonly data: {
 		initialize(): void;
 	};
-	push: {
+	readonly push: {
 		run: SerializedRemote;
 	};
-	character: {
+	readonly character: {
 		toggleDefaultMovement(on: boolean): void;
 	};
-	state: {
+	readonly state: {
 		hydrate(): void;
 	};
-	debug: {
+	readonly debug: {
 		subscribe(): void;
 	};
 }
 
 interface ClientEvents {
-	game: {
+	readonly game: {
 		sprint: SerializedRemote;
 	};
-	camera: {
+	readonly camera: {
 		screenshake: SerializedRemote;
 		fieldofview: SerializedRemote;
 	};
-	audio: {
+	readonly audio: {
 		played: SerializedRemote;
 	};
-	network: {
+	readonly network: {
 		owner: SerializedRemote;
 	};
-	animation: {
+	readonly animation: {
 		played: SerializedRemote;
 	};
-	effect: {
+	readonly effect: {
 		replicate: SerializedRemote;
 	};
-	asset: {
+	readonly asset: {
 		replicate: SerializedRemote;
 	};
-	push: {
+	readonly push: {
 		run: SerializedRemote;
 	};
-	data: {
+	readonly data: {
 		loaded: SerializedRemote;
 		updated: SerializedRemote;
 	};
-	state: {
+	readonly state: {
 		updated(payload: SyncPayload<BaseStateBlackboard>): void;
 	};
 }
 
-interface ServerFunctions { }
+interface ServerFunctions {}
 
-interface ClientFunctions { }
+interface ClientFunctions {}
 
 export const Serializers = <const>{
 	playerData: createBinarySerializer<PlayerData>(),

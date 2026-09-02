@@ -1,5 +1,5 @@
 import { HttpService as http } from "@rbxts/services";
-import { startsWith } from "@rbxts/string-utils";
+import { endsWith, startsWith } from "@rbxts/string-utils";
 import { isObject, isString } from "shared/utility/t-isA";
 export abstract class JSON {
 	/*
@@ -55,7 +55,7 @@ export function isJsonString(value: unknown): value is string {
 	if (
 		isString(value) &&
 		(startsWith(value, "{") || startsWith(value, "[")) &&
-		(startsWith(value, "}") || startsWith(value, "]"))
+		(endsWith(value, "}") || endsWith(value, "]"))
 	)
 		return true;
 	return false;

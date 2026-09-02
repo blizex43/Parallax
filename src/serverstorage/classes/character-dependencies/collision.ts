@@ -11,6 +11,6 @@ export class CollisionDependency implements CharacterDependency {
 	}
 
 	private constructRagdollEntity(humanoid: Humanoid) {
-		Reconcile(humanoid, HumanoidRagdollProperties);
+		Reconcile(humanoid, <Partial<Pick<Humanoid, keyof Humanoid>>>HumanoidRagdollProperties);
 	}
 }

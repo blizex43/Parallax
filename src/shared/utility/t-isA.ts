@@ -27,7 +27,7 @@ export const isNull = t.nil;
 export const isObject = t.table;
 export const isArray = t.array;
 export const isFunction = t.callback;
-export const isNativeDataType = t.union(isBoolean, isNumber, isString, isNull);
+export const isNativeDataType = t.union(isBoolean, isNumber, isString, isNull, isObject);
 // Sub-Natives
 export const isVector3 = t.Vector3;
 export const isVector2 = t.Vector2;

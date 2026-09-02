@@ -1,6 +1,6 @@
 import { now } from "shared/utility/time";
 import { RoSQLParser } from "./parser";
-import {
+import type {
 	ConditionalTableType,
 	DatabaseType,
 	DataFileType,
@@ -9,6 +9,7 @@ import {
 	RoSQLEncryption,
 	RoSQLGetter,
 	RoSQLManagerListeners,
+	RoSQLNativeTypesType,
 	RoSQLNeeds,
 	ROSQLOptionsArchitecture,
 	RoSQLRemover,
@@ -23,8 +24,12 @@ import Signal from "@rbxts/signal";
 import Object, { deepCopy } from "@rbxts/object-utils";
 import { Players } from "@rbxts/services";
 import { ReconcileUnadded } from "shared/utility/instance";
+import { SQLEnums } from "./enums";
+import { trim } from "@rbxts/string-utils";
+import { Express } from "shared/classes/express";
 
 export abstract class RoSQLManager extends RoSQLParser {
+	public readonly types = SQLEnums;
 	public readonly referenceDataFile: Maybe<DataFileType>;
 	public readonly type: DatabaseType;
 	public readonly configuration: DatastoreSQLConfig;
@@ -41,6 +46,7 @@ export abstract class RoSQLManager extends RoSQLParser {
 	protected readonly connections: Record<number, RBXScriptConnection> = {};
 	private readonly playerTable: Map<Player, DataFileType> = new Map();
 	private readonly activeSavePromises = new Set<Promise<void>>();
+	private readonly express: Express = new Express({ threadCap: 5 });
 	private readonly queues = {
 		autocommit: false,
 	};
@@ -76,19 +82,36 @@ export abstract class RoSQLManager extends RoSQLParser {
 		if (existing) return [<D>existing, true, ""];
 		if (!this.referenceDataFile) throw errorFormat("Reference data file is not defined.");
 		const copy = deepCopy(this.referenceDataFile);
-		// eslint-disable-next-line prefer-const
-		let [data, success, response] = await this.select(this.configuration.databaseName, ["*"], {
-			["userId"]: {
-				value: tostring(player.UserId),
-				symbol: "=",
-			},
-		}).catch((err) => {
-			warn(`FOUND ERROR: ${err}`);
-			return [{}, false, `Failed to fetch data for player ${player.Name}: ${err}`];
-		});
-		if (success === false) return [<D>data, <boolean>success, <string>response];
+		const core = this.express.get(`registerPlayer-${player.UserId}`);
+		// eslint-disable-next-line no-useless-assignment
+		let [data, success, response]: [D, boolean, string] = [<D>{}, false, ""];
+		if (core) {
+			[data, success, response] = <[D, boolean, string]>await core.core;
+		} else {
+			this.express.add(`registerPlayer-${player.UserId}`, async () => {
+				return await this.select(["*"], {
+					["userId"]: {
+						value: tostring(player.UserId),
+						symbol: "=",
+					},
+				})
+					.then((data) => {
+						return [data[0], true, ""];
+					})
+					.catch((err) => {
+						warn(`FOUND ERROR: ${err}`);
+						return [{}, false, `Failed to fetch data for player ${player.Name}: ${err}`];
+					});
+			});
+
+			[data, success, response] = <[D, boolean, string]>(
+				await this.express.start(`registerPlayer-${player.UserId}`)!.core
+			);
+		}
+		this.express.remove(`registerPlayer-${player.UserId}`);
+		if (!success) return [<D>data, <boolean>success, <string>response];
 		if (data) ReconcileUnadded(<Record<string, unknown>>data, <Record<string, unknown>>copy);
-		data ??= forceData ? copy : {};
+		data ??= forceData ? <D>copy : <D>{};
 		this.playerTable.set(player, data);
 		return [<D>data, true, ""];
 	}
@@ -99,7 +122,7 @@ export abstract class RoSQLManager extends RoSQLParser {
 			if (!data) throw errorFormat(`Player ${player.Name} is not registered.`);
 			data[<never>"userId"] = <never>player.UserId;
 			print(`[ROSQL] Saving data for ${player.Name} (${player.UserId}).`);
-			await this.updateNative(this.configuration.databaseName, data, "userId").catch((err) => error(err));
+			await this.updateNative(data, "userId").catch((err) => error(err));
 			print(`[ROSQL] Saved data for ${player.Name} (${player.UserId}).`);
 		})();
 
@@ -133,32 +156,51 @@ export abstract class RoSQLManager extends RoSQLParser {
 		return promises;
 	}
 
-	public async commit(tableName: string, commitName?: string): Promise<unknown> {
+	public async commit(commitName?: string, tableName: string = this.configuration.databaseName): Promise<unknown> {
 		return await this.executeCommand("COMMIT", {
 			tableName,
 			values: commitName ? [commitName] : [],
 		});
 	}
 
-	public async rollback(tableName: string, commitName?: string): Promise<unknown> {
+	public async rollback(commitName?: string, tableName: string = this.configuration.databaseName): Promise<unknown> {
 		return await this.executeCommand("ROLLBACK", {
 			tableName,
 			values: commitName ? [commitName] : [],
 		});
 	}
 
-	public async create(tableName: string, columns: string[]): Promise<unknown> {
+	public async create(
+		entries: Record<string, (RoSQLNativeTypesType | number)[]>,
+		tableName: string = this.configuration.databaseName,
+	): Promise<unknown> {
+		const columns: string[] = [];
+		for (const [name, entry] of pairs(entries)) {
+			let column = `${name}`;
+			// Automatically turn the type into a parenthesis type if theres more than 2 entries in the array
+			const entrySize = entry.size();
+			if (entrySize > 1) {
+				column += ` ${entry
+					.map((value, index) => {
+						return index === 0 ? `${value}(` : index === entrySize - 1 ? `${value})` : `${value}, `;
+					})
+					.join("")}`;
+			} else {
+				column += ` ${entry.join(",\n")}`;
+			}
+			columns.push(trim(column));
+		}
 		return await this.executeCommand("CREATE", { tableName, columns });
 	}
 
-	public async drop(tableName: string): Promise<unknown> {
+	public async drop(tableName: string = this.configuration.databaseName): Promise<unknown> {
 		return await this.executeCommand("DROP", { tableName });
 	}
 
 	public async select<T extends DataFileType[]>(
-		tableName: string,
 		columns: string[],
 		conditions?: Record<string, ConditionalTableType>,
+		tableName: string = this.configuration.databaseName,
 	): Promise<T> {
 		return await this.executeCommand<T>("SELECT", { tableName, columns, conditions });
 	}
@@ -168,51 +210,63 @@ export abstract class RoSQLManager extends RoSQLParser {
 	}
 
 	public async update(
-		tableName: string,
 		setClauses: Record<string, ConditionalTableType>,
 		conditions?: Record<string, ConditionalTableType>,
+		tableName: string = this.configuration.databaseName,
 	): Promise<unknown> {
 		return await this.executeCommand("UPDATE", { tableName, setClauses, conditions });
 	}
 
 	public async updateNative(
-		tableName: string,
 		data: object,
 		primaryKey: string = this.configuration.primaryKeyName,
+		tableName: string = this.configuration.databaseName,
 	): Promise<unknown> {
 		if (!(primaryKey in data)) throw errorFormat(`Primary key '${primaryKey}' is missing from the provided data.`);
 		const primaryValue = data[<never>primaryKey];
-		return await this.databaseMethods.updateAsync<object[]>(tableName, (previous) => {
-			previous ??= [];
-			let found = false;
-			for (const [index, loopData] of pairs(previous)) {
-				if (
-					checkMatchCondition(
-						{
-							[primaryKey]: {
-								symbol: "=",
-								value: tostring(primaryValue),
+		if (this.configuration.allowEnforcePrimaryKeyForFastIndexing) {
+			// Fast indexing mode: store as {primaryKey: data}
+			return await this.databaseMethods.updateAsync<Record<string, unknown>>(tableName, (previous) => {
+				previous ??= {};
+				const keyStr = tostring(primaryValue);
+				previous[keyStr] = data;
+				print("Successfully Updated Natively using Fast Indexing");
+				return [previous];
+			});
+		} else {
+			// Standard mode: store as array of objects
+			return await this.databaseMethods.updateAsync<object[]>(tableName, (previous) => {
+				previous ??= [];
+				let found = false;
+				for (const [index, loopData] of pairs(previous)) {
+					if (
+						checkMatchCondition(
+							{
+								[primaryKey]: {
+									symbol: "=",
+									value: tostring(primaryValue),
+								},
 							},
-						},
-						<Record<string, unknown>>loopData,
-					)
-				) {
-					previous[index - 1] = data;
-					found = true;
-					break;
+							<Record<string, unknown>>loopData,
+						)
+					) {
+						previous[index - 1] = data;
+						found = true;
+						break;
+					}
 				}
-			}
-			if (!found) previous.push(data);
-			return [previous];
-		});
+				if (!found) previous.push(data);
+				return [previous];
+			});
+		}
 	}
 
 	public async alter(
-		tableName: string,
 		operation: string,
 		index?: string,
 		indexArg?: string,
 		indexArg2?: string,
+		tableName: string = this.configuration.databaseName,
 	): Promise<unknown> {
 		const exporting = [operation, "COLUMN", index, indexArg, indexArg2].filterUndefined();
 		return await this.executeCommand("ALTER", {
@@ -221,7 +275,7 @@ export abstract class RoSQLManager extends RoSQLParser {
 		});
 	}
 
-	public async open(tableName: string): Promise<unknown> {
+	public async open(tableName: string = this.configuration.databaseName): Promise<unknown> {
 		const promises: Promise<unknown>[] = [];
 		if (this.configuration.allowSetAutocommit && !this.queues.autocommit)
 			promises.push(this.queueAutoCommit(tableName));
@@ -229,13 +283,12 @@ export abstract class RoSQLManager extends RoSQLParser {
 		return await Promise.all(promises);
 	}
 
-	private async queueAutoCommit(tableName: string): Promise<void> {
+	private async queueAutoCommit(tableName: string = this.configuration.databaseName): Promise<void> {
 		this.queues.autocommit = true;
-		const existing = <ROSQLOptionsArchitecture>(
-			((await this.databaseMethods.get<ROSQLOptionsArchitecture>(
-				`${this.configuration.metadataPrefix}${tableName}`,
-			)) ?? {})
+		const existing = await this.databaseMethods.get<ROSQLOptionsArchitecture>(
+			`${this.configuration.metadataPrefix}${tableName}`,
 		);
+		if (!existing) return;
 		const lastCommit =
 			this.configuration.autocommitIntervalName in existing
 				? existing[this.configuration.autocommitIntervalName]
@@ -244,7 +297,7 @@ export abstract class RoSQLManager extends RoSQLParser {
 		const dueTick = lastTick! + 3_600_000 * this.configuration.autocommitInterval;
 		if (!(this.configuration.autocommitIntervalName in existing)) {
 			if (this.configuration.allowInitialCommitFromAutoCommitFunction)
-				await this.commit(tableName, this.configuration.initialAutocommitAlias);
+				await this.commit(this.configuration.initialAutocommitAlias, tableName);
 			else
 				await this.databaseMethods.set(
 					`${this.configuration.metadataPrefix}${tableName}`,
@@ -254,7 +307,7 @@ export abstract class RoSQLManager extends RoSQLParser {
 				);
 		}
 		task.wait(math.max(dueTick - now(), 0));
-		await this.commit(tableName);
+		await this.commit();
 		this.queues.autocommit = false;
 	}
 
