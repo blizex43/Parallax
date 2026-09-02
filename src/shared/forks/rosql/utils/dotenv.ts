@@ -45,13 +45,12 @@ export function transformDotEnvValue<T>(value: string, typeofValue: keyof Checka
 }
 
 export function parseDotEnv(file: string): Record<string, string> {
-	[file] = file.gsub("_", "");
 	const lines = file.split("\n");
 	const env: Record<string, string> = {};
 	for (const line of lines) {
 		const [key, value] = line.split("=");
 		if (key && value) {
-			env[trim(key)] = trim(value);
+			env[trim(key.gsub("_", "")[0])] = trim(value);
 		}
 	}
 	return env;

@@ -17,7 +17,7 @@ export function toobject(value: unknown): Maybe<object> {
 	}
 	if (json.canDecode(value)) {
 		const parsed = json.decode(value);
-		if (isObject(parsed)) {
+		if (parsed) {
 			return parsed;
 		}
 	}

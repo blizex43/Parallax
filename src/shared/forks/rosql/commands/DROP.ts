@@ -28,6 +28,7 @@ export class DROPQuery implements RoSQLQueryCommandsFunctions {
 			if (!previous) throw errorFormat(`Table '${input.tableName}' does not exist.`);
 			return [undefined];
 		});
+		// Remove fast indexing state for this table
 		return infoFormat(`Table '${input.tableName}' dropped successfully.`);
 	}
 

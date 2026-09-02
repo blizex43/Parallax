@@ -140,7 +140,7 @@ export async function constructCustomUpdateAsync(
 
 			if (acquired) {
 				try {
-					const oldData = <Maybe<T>>((await get<T>(`${properties.prefix}${key}`)) ?? []);
+					const oldData = <Maybe<T>>await get<T>(`${properties.prefix}${key}`);
 					const oldMetaData = <Maybe<M>>(
 						(canUseMetaData ? ((await get<M>(`${configuration.metadataPrefix}${key}`)) ?? {}) : undefined)
 					);

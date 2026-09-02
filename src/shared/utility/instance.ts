@@ -15,25 +15,27 @@ export function Create<T extends keyof CreatableInstances>(
 	return object;
 }
 
-export function Reconcile<T extends Instance | Record<string, unknown>>(
+export function Reconcile<T extends object, K extends keyof T>(
 	instance: T,
-	instanceEnum: Record<string, unknown>,
-	check: boolean = true,
+	values: Partial<Pick<T, K>>,
+	check = true,
 ): T {
-	for (const [propertyName, propertyValue] of pairs(instanceEnum)) {
-		if (check && !(propertyName in instance)) continue;
-		instance[<"Name">propertyName] = <never>propertyValue;
+	for (const [propertyName, propertyValue] of pairs(values)) {
+		if (check && !(<K>propertyName in instance)) continue;
+
+		instance[<K>propertyName] = <T[K]>propertyValue;
 	}
+
 	return instance;
 }
 
-export function ReconcileUnadded<T extends Instance | Record<string, unknown>>(
+export function ReconcileUnadded<T extends object, K extends keyof T>(
 	instance: T,
-	instanceEnum: Record<string, unknown>,
+	instanceEnum: Partial<Pick<T, K>>,
 ): T {
 	for (const [propertyName, propertyValue] of pairs(instanceEnum)) {
-		if (propertyName in instance) continue;
-		instance[<"Name">propertyName] = <never>propertyValue;
+		if (<K>propertyName in instance) continue;
+		instance[<K>propertyName] = <never>propertyValue;
 	}
 	return instance;
 }

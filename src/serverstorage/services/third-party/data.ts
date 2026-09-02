@@ -1,5 +1,5 @@
 import { Service, type OnInit } from "@flamework/core";
-import { DataStoreService as Data, Players } from "@rbxts/services";
+import { DataStoreService as Data } from "@rbxts/services";
 import { Firebase } from "@rbxts/firebase";
 import Signal from "@rbxts/signal";
 import type { LogStart } from "shared/hooks";
@@ -140,44 +140,6 @@ export class DataService implements OnInit, OnPlayerJoin, OnPlayerLeave, LogStar
 			this.delSnapshot(player);
 			this.leavingPlayers.delete(player);
 		}
-	}
-
-	private async saveLeavingPlayersOnShutdown(): Promise<void> {
-		const promises: Promise<void>[] = [];
-		for (const player of Players.GetPlayers()) {
-			if (!this.rosql.getPlayerData<PlayerData>(player)) continue;
-			promises.push(
-				(async () => {
-					const loadingPromise = this.loadingPlayers.get(player);
-					if (loadingPromise) {
-						print(
-							`[DATA] BindToClose waiting for ${player.Name} (${player.UserId}) to finish loading before shutdown save.`,
-						);
-						await loadingPromise.catch((err) => {
-							warn(
-								`[DATA] ${player.Name} (${player.UserId}) failed loading during shutdown save: ${err}`,
-							);
-						});
-					}
-
-					if (!this.rosql.getPlayerData<PlayerData>(player)) {
-						warn(
-							`[DATA] BindToClose cannot save ${player.Name} (${player.UserId}) because data is not registered.`,
-						);
-						return;
-					}
-
-					print(`[DATA] BindToClose saving player ${player.Name} (${player.UserId}).`);
-					await this.rosql.savePlayerData(player);
-					print(`[DATA] BindToClose saved player ${player.Name} (${player.UserId}).`);
-				})().catch((err) => {
-					warn(`[DATA] BindToClose failed to save player ${player.Name} (${player.UserId}): ${err}`);
-				}),
-			);
-		}
-
-		if (promises.size() > 0) print(`[DATA] BindToClose waiting for ${promises.size()} player save(s).`);
-		await Promise.all(promises);
 	}
 
 	public async getGlobal<T>(directory: string, defaultValue?: T): Promise<Maybe<T>> {

@@ -77,6 +77,7 @@ export interface DatastoreSQLConfig {
 	allowAutoDataManagement: boolean;
 	allowAutoDataServerShutdownBackup: boolean;
 	allowInitialCommitFromAutoCommitFunction: boolean;
+	allowEnforcePrimaryKeyForFastIndexing: boolean;
 	initialAutocommitAlias: string;
 	primaryKeyName: string;
 	databaseName: string;

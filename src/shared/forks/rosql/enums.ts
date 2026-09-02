@@ -33,6 +33,7 @@ export const defaultSQLConfig: DatastoreSQLConfig = <const>{
 	allowAutoDataManagement: true,
 	allowAutoDataServerShutdownBackup: true,
 	allowInitialCommitFromAutoCommitFunction: true,
+	allowEnforcePrimaryKeyForFastIndexing: true, // RECOMMENDED
 	initialAutocommitAlias: "init",
 	primaryKeyName: "userId",
 	databaseName: "nan",
@@ -68,3 +69,13 @@ export const allowedNativeType = <const>[
 	"BOOLEAN",
 ];
 export const allowedNativeTypeWithParentheses = <const>["CHAR", "VARCHAR", "SET", "DECIMAL"];
+export const SQLEnums = <const>{
+	INT: "INT",
+	STRING: "STRING",
+	DATE: "DATE",
+	TIME: "TIME",
+	DATETIME: "DATETIME",
+	TIMESTAMP: "TIMESTAMP",
+	CHAR: "CHAR",
+	VARCHAR: "VARCHAR",
+};

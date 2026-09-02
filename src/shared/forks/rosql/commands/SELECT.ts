@@ -34,22 +34,44 @@ export class SELECTQuery implements RoSQLQueryCommandsFunctions {
 
 	public async do(manager: RoSQLManager, input: SQLParsedReturns): Promise<unknown> {
 		if (!manager.configuration.allowSelect) throw errorFormat(`SELECT is disabled.`);
-		let data: Maybe<DataFileType[]>;
+
 		const results: Record<string, unknown>[] = [];
-		try {
-			data = await manager.databaseMethods.get<DataFileType[]>(input.tableName);
-			if (!data) return results;
-		} catch (err) {
+		const useFastIndexing = manager.configuration.allowEnforcePrimaryKeyForFastIndexing;
+
+		const data = await manager.databaseMethods.get<Record<string, DataFileType>>(input.tableName).catch((err) => {
 			throw errorFormat(`Failed to fetch data from DataStore\n${err}`);
+		});
+		if (!data) return results;
+		if (useFastIndexing) {
+			for (const [conditional_key, conditional_value] of pairs(input.conditions)) {
+				if (
+					conditional_key === manager.configuration.primaryKeyName &&
+					conditional_value.symbol === "=" &&
+					conditional_value.value in data
+				) {
+					delete input.conditions[conditional_key];
+					// print("Successfully found record using fast indexing.");
+					const recordValue = <Record<string, unknown>>data[conditional_value.value];
+					if (input.columns[0] === "*") results.push(manager.decryption(recordValue));
+					else {
+						const matchedResult: Record<string, unknown> = {};
+						for (const [, column] of ipairs(input.columns))
+							if (column in recordValue) matchedResult[column] = recordValue[column];
+						results.push(manager.decryption(matchedResult));
+					}
+					return results;
+				}
+			}
 		}
-		for (const value of data) {
+		// Standard format: data is [{record}, {record}, ...]
+		for (const [, value] of pairs(data)) {
 			let match: boolean = true;
 			if (input.conditions && objectSize(input.conditions) > 0)
 				match = checkMatchCondition(input.conditions, value);
 
 			if (match) {
 				// print("Found Match: ", value);
-				const recordValue = <Record<string, unknown>>(<unknown>value);
+				const recordValue = <Record<string, unknown>>value;
 				if (input.columns[0] === "*") {
 					results.push(manager.decryption(recordValue));
 					break;
@@ -61,6 +83,7 @@ export class SELECTQuery implements RoSQLQueryCommandsFunctions {
 				}
 			}
 		}
+
 		print(results);
 		return results;
 	}

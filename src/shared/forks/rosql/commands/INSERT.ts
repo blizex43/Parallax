@@ -40,22 +40,42 @@ export class INSERTQuery implements RoSQLQueryCommandsFunctions {
 
 		const record = <Record<string, string>>{};
 		for (const [i, column] of ipairs(input.columns)) record[column] = input.values[i - 1];
-		await manager.databaseMethods.updateAsync<Record<string, unknown>[]>(input.tableName, (previous, metaData) => {
-			if (!previous)
-				if (manager.configuration.allowOverwrite) previous = [];
-				else throw errorFormat("Table does not exist and overwrite is not allowed, so cannot insert data.");
-			if (metaData) {
-				for (const [column, value] of pairs(record)) {
-					const [success, response] = validateNativeTypeFromMetaData(metaData, column, value);
+
+		const useFastIndexing = manager.configuration.allowEnforcePrimaryKeyForFastIndexing;
+		if (useFastIndexing && !(manager.configuration.primaryKeyName in record)) {
+			throw errorFormat(
+				`Fast indexing requires primary key '${manager.configuration.primaryKeyName}' in record. Cannot insert without primary key.`,
+			);
+		}
+
+		await manager.databaseMethods.updateAsync<Record<string, unknown>[] | Record<string, unknown>>(
+			input.tableName,
+			(previous, metaData) => {
+				if (!previous)
+					if (manager.configuration.allowOverwrite) previous = useFastIndexing ? {} : [];
+					else throw errorFormat("Table does not exist and overwrite is not allowed, so cannot insert data.");
+
+				if (metaData) {
+					for (const [column, value] of pairs(record)) {
+						const [success, response] = validateNativeTypeFromMetaData(metaData, column, value);
+						if (!success) throw response;
+					}
+					const [success, response] = validateKeywordFunctionsFromMetadata(metaData, record);
 					if (!success) throw response;
+					castMetadataFunctions(<Record<string, unknown>[]>(<unknown>previous), record, metaData);
 				}
-				const [success, response] = validateKeywordFunctionsFromMetadata(metaData, record);
-				if (!success) throw response;
-				castMetadataFunctions(<Record<string, unknown>[]>(<unknown>previous), record, metaData);
-			}
-			previous.push(<Record<string, unknown>>record);
-			return [previous];
-		});
+
+				if (useFastIndexing) {
+					const fastIndexingRecord = <Record<string, unknown>>previous;
+					fastIndexingRecord[manager.configuration.primaryKeyName] = record;
+				} else {
+					const arrayRecord = <Record<string, unknown>[]>(<unknown>previous);
+					arrayRecord.push(<Record<string, unknown>>record);
+				}
+
+				return [previous];
+			},
+		);
 		return infoFormat(`Record inserted into '${input.tableName}'.`);
 	}
 
