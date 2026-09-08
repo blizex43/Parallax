@@ -46,7 +46,6 @@ export abstract class RoSQLManager extends RoSQLParser {
 	protected readonly connections: Record<number, RBXScriptConnection> = {};
 	private readonly playerTable: Map<Player, DataFileType> = new Map();
 	private readonly activeSavePromises = new Set<Promise<void>>();
-	private readonly express: Express = new Express({ threadCap: 5 });
 	private readonly queues = {
 		autocommit: false,
 	};
@@ -74,6 +73,7 @@ export abstract class RoSQLManager extends RoSQLParser {
 		this.readAndActionConfig();
 	}
 
+	@Express.createJobWithDecorator("Player Data Registry", true)
 	public async registerPlayer<D extends DataFileType>(
 		player: Player,
 		forceData: boolean = true,
@@ -82,13 +82,10 @@ export abstract class RoSQLManager extends RoSQLParser {
 		if (existing) return [<D>existing, true, ""];
 		if (!this.referenceDataFile) throw errorFormat("Reference data file is not defined.");
 		const copy = deepCopy(this.referenceDataFile);
-		const core = this.express.get(`registerPlayer-${player.UserId}`);
-		// eslint-disable-next-line no-useless-assignment
-		let [data, success, response]: [D, boolean, string] = [<D>{}, false, ""];
-		if (core) {
-			[data, success, response] = <[D, boolean, string]>await core.core;
-		} else {
-			this.express.add(`registerPlayer-${player.UserId}`, async () => {
+		const [data, success, response] = await Express.createJob<[D, boolean, string]>({
+			popOnEnd: true,
+			id: `registerPlayer-${player.UserId}`,
+			callback: async () => {
 				return await this.select(["*"], {
 					["userId"]: {
 						value: tostring(player.UserId),
@@ -102,16 +99,12 @@ export abstract class RoSQLManager extends RoSQLParser {
 						warn(`FOUND ERROR: ${err}`);
 						return [{}, false, `Failed to fetch data for player ${player.Name}: ${err}`];
 					});
-			});
+			},
+		}).start();
 
-			[data, success, response] = <[D, boolean, string]>(
-				await this.express.start(`registerPlayer-${player.UserId}`)!.core
-			);
-		}
-		this.express.remove(`registerPlayer-${player.UserId}`);
 		if (!success) return [<D>data, <boolean>success, <string>response];
 		if (data) ReconcileUnadded(<Record<string, unknown>>data, <Record<string, unknown>>copy);
-		data ??= forceData ? <D>copy : <D>{};
+		(<Writable<typeof data>>data) ??= forceData ? <D>copy : <D>{};
 		this.playerTable.set(player, data);
 		return [<D>data, true, ""];
 	}

@@ -1,121 +1,140 @@
+/* eslint-disable no-async-promise-executor */
 import Signal from "@rbxts/signal";
-import { defaultExpressMetadata, defaultExpressConfiguration } from "shared/enums/express-enum";
-import type { ExpressConfiguration, ExpressCoreData, ExpressMetadata } from "shared/structs/express";
-import { Reconcile, ReconcileUnadded } from "shared/utility/instance";
-function expressError(message: string): never {
-	throw `Express Error: ${message}`;
-}
-export abstract class ExpressMetadataCollector {
-	protected abstract readonly metadata: ExpressMetadata;
-	protected write<M extends keyof ExpressMetadata, V extends ExpressMetadata[M]>(metaname: M, value: V) {
+import { defaultExpressMetadata } from "shared/enums/express-enum";
+import type { ExpressMetadata, JobConfiguration, JobCoreData, JobStatus } from "shared/structs/express";
+import { isEqualToMassOperation } from "shared/utility/cases";
+import { Reconcile } from "shared/utility/instance";
+export class ExpressMetadataCollector {
+	constructor(protected readonly metadata: ExpressMetadata) {}
+	public write<M extends keyof ExpressMetadata, V extends ExpressMetadata[M]>(metaname: M, value: V) {
 		this.metadata[metaname] = value;
 	}
 
-	protected read<M extends keyof ExpressMetadata, T extends ExpressMetadata[M]>(metaname: M): T {
+	public read<M extends keyof ExpressMetadata, T extends ExpressMetadata[M]>(metaname: M): T {
 		return <T>this.metadata[metaname];
 	}
 }
 
-export class Express extends ExpressMetadataCollector {
-	protected readonly metadata: ExpressMetadata = <ExpressMetadata>Reconcile({}, defaultExpressMetadata, false);
-	private readonly threads: Map<string, ExpressCoreData> = new Map();
-	private readonly queuedThreads: Map<string, Callback> = new Map();
-	private readonly configuration: ExpressConfiguration;
-	public readonly ended: Signal<(result: unknown) => void> = new Signal();
-	public readonly looped: Signal = new Signal();
-
-	public constructor(configuration: Partial<ExpressConfiguration> = {}) {
-		super();
-		ReconcileUnadded(configuration, defaultExpressConfiguration);
-		this.appendConfigurationToMetadata(<ExpressConfiguration>configuration);
-		this.configuration = <ExpressConfiguration>configuration;
+export class Job<T = unknown> {
+	private currentTask: Maybe<JobCoreData<T>>;
+	public readonly statusChanged: Signal<(newStatus: JobStatus, oldStatus: JobStatus) => void> = new Signal();
+	private readonly lastJobValue: Maybe<T>;
+	private readonly status: JobStatus = "Not Started";
+	public readonly id: string;
+	constructor(public readonly configuration: JobConfiguration) {
+		this.id = configuration.id;
 	}
 
-	public start(key?: string): ExpressCoreData | void {
-		if (key) {
-			const queuedThread = this.queuedThreads.get(key);
-			if (!queuedThread) return expressError(`No queued thread found with key ${key}.`);
-			return this.createAndRunCoreData(key, queuedThread);
-		} else for (const [name, callback] of this.queuedThreads) this.createAndRunCoreData(name, callback);
+	public start(): Promise<T> {
+		this.currentTask = this.constructJobThreadAndPromise<T>();
+		if (this.configuration.delay) task.wait(this.configuration.delay);
+		coroutine.resume(this.currentTask.thread);
+		this.changeStatus("Running");
+		return this.currentTask.promise;
 	}
 
-	public add(key: string, value: Callback): void {
-		if (this.metadata.threads >= this.configuration.threadCap) {
-			expressError(`Thread cap of ${this.configuration.threadCap} reached. Cannot add thread ${key}.`);
-		}
-		this.queuedThreads.set(key, value);
-		return this.write("queued", this.queuedThreads.size());
+	public end(): void {
+		if (!this.currentTask) return;
+		if (coroutine.status(this.currentTask.thread) !== "dead") coroutine.close(this.currentTask.thread);
+		this.changeStatus("Cancelled");
 	}
 
-	public has(key: string): boolean {
-		return this.threads.has(key) || this.queuedThreads.has(key);
+	public getLastJobResult(): Maybe<Promise<T>> {
+		if (this.lastJobValue) return <Promise<T>>(<unknown>this.lastJobValue);
+		return this.currentTask?.promise;
 	}
 
-	public get(key: string): Maybe<ExpressCoreData> {
-		return this.threads.get(key);
+	public getStatus(): JobStatus {
+		return this.status;
 	}
 
-	public remove(key: string, kill: boolean = false): void {
-		const existingThread = this.threads.get(key);
-		if (existingThread && coroutine.status(existingThread.thread) !== "dead") {
-			if (kill) {
-				coroutine.close(existingThread.thread);
-			}
-			return;
-		}
-		this.threads.delete(key);
-		return void this.queuedThreads.delete(key);
-	}
-
-	public destroy(): void {
-		for (const [key, coreData] of this.threads) {
-			if (coroutine.status(coreData.thread) !== "dead") coroutine.close(coreData.thread);
-			this.threads.delete(key);
-		}
-		for (const [key] of this.queuedThreads) this.queuedThreads.delete(key);
-	}
-
-	private createPromiseEnvironment<T>(callback: Callback): Promise<T> {
-		// eslint-disable-next-line no-async-promise-executor
-		return new Promise(async (resolve) => {
-			let loops = 0;
-			let output: T;
-			do {
-				loops++;
-				if (loops !== 1) this.looped.Fire();
-
-				this.write("loops", this.read("loops") + 1);
-				output = await callback();
-			} while (loops <= this.configuration.loopAmount);
-			this.ended.Fire(output);
-			return resolve(output);
+	private constructJobPromise<P>(): Promise<P> {
+		return new Promise<P>(async (resolve) => {
+			const response = await this.configuration.callback(...(this.configuration.args ?? []));
+			return resolve(response);
 		});
 	}
 
-	private createAndRunCoreData(key: string, callback: Callback): ExpressCoreData {
-		this.queuedThreads.delete(key);
-		const core = this.createCoreData(callback);
-		this.threads.set(key, core);
-		this.write("threads", this.read("threads") + 1);
-		coroutine.resume(core.thread);
+	private constructJobThreadAndPromise<P>(): JobCoreData<P> {
+		const core = <JobCoreData<P>>{};
+		core.thread = coroutine.create(async () => {
+			let loops = 0;
+			do {
+				core.promise = this.constructJobPromise<P>();
+				(<Awaited<P>>(<unknown>this.lastJobValue)) = await core.promise;
+				loops++;
+			} while (loops <= (this.configuration.loopAmount ?? 0));
+			this.changeStatus("Finished");
+		});
 		return core;
 	}
 
-	private createCoreData(callback: Callback): ExpressCoreData {
-		const core = this.createPromiseEnvironment(callback);
-		return {
-			core,
-			thread: coroutine.create(async () => await core),
-		};
+	private changeStatus(newStatus: JobStatus): void {
+		const oldStatus = this.status;
+		(<JobStatus>this.status) = newStatus;
+		if (oldStatus !== newStatus) this.statusChanged.Fire(newStatus, oldStatus);
+	}
+}
+export abstract class Express {
+	private static readonly metadata: ExpressMetadata = <ExpressMetadata>Reconcile({}, defaultExpressMetadata, false);
+	private static readonly collector: ExpressMetadataCollector = new ExpressMetadataCollector(this.metadata);
+	private static readonly previousJobArgHistory: Map<string, unknown[]> = new Map();
+	private static readonly jobs: Map<string, Job> = new Map();
+	public static has(key: string): boolean {
+		return this.jobs.has(key);
 	}
 
-	private appendConfigurationToMetadata(configuration: ExpressConfiguration) {
-		for (const [metaKey] of pairs(this.metadata)) {
-			if (metaKey in configuration)
-				this.write(
-					metaKey,
-					<ExpressMetadata[keyof ExpressMetadata]>configuration[<keyof ExpressConfiguration>metaKey],
-				);
+	public static get<T>(key: string): Maybe<Job<T>> {
+		return <Maybe<Job<T>>>this.jobs.get(key);
+	}
+
+	public static remove(key: string, kill: boolean = false): void {
+		const job = this.get(key);
+		if (job && job.getStatus() !== "Finished" && kill) job.end();
+		this.jobs.delete(key);
+		this.collector.write("jobs", this.jobs.size());
+	}
+	public static createJob<T = unknown>(configuration: JobConfiguration): Job<T> {
+		const job = new Job<T>(configuration);
+		this.jobs.set(job.id, job);
+		this.collector.write("jobs", this.jobs.size());
+		this.previousJobArgHistory.set(configuration.id, configuration.args ?? []);
+		if (configuration.popOnEnd) {
+			const connection = job.statusChanged.Connect((status) => {
+				if (!isEqualToMassOperation(status, "Finished", "Cancelled")) return;
+				connection.Disconnect();
+				this.remove(job.id);
+			});
 		}
+		return job;
+	}
+
+	public static createJobWithDecorator<I extends unknown[] = unknown[], V = unknown>(
+		id: string,
+		activateWhenRunningOnly: boolean = false,
+	) {
+		return (
+			ctor: object,
+			propertyKey: string,
+			descriptor: TypedPropertyDescriptor<(this: unknown, ...input: I) => Promise<V>>,
+		) => {
+			const object = <Record<string, Callback>>ctor;
+			const originalMethod = descriptor.value!;
+			object[propertyKey] = async function (this: unknown, ...args: I) {
+				const previousJob = Express.get(id);
+				const previousArgs = <defined[]>Express.previousJobArgHistory.get(id);
+				const enabledLastResult =
+					(activateWhenRunningOnly && previousJob && previousJob.getStatus() === "Running") ?? true;
+				if (previousJob && previousArgs) {
+					let matched = 0;
+					for (const arg of args) {
+						if (previousArgs.includes(<defined>arg)) matched++;
+					}
+					if (matched === args.size() && enabledLastResult) return await previousJob.getLastJobResult();
+				}
+				const job = Express.createJob({ id, callback: originalMethod, args: [this, ...args] });
+				return await job.start();
+			};
+		};
 	}
 }

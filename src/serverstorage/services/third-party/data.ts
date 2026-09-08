@@ -21,7 +21,7 @@ import { isNull } from "shared/utility/t-isA";
 import Log from "shared/log";
 import Object from "@rbxts/object-utils";
 import { RoSQL } from "shared/forks/rosql";
-import DOTENV from "serverstorage/secret/sql.env";
+import DOTENV from "serverstorage/langs/env/data.env";
 import { formatToDatabase, formatToGame } from "shared/utility/data";
 const FirebaseCreated = new Signal();
 export async function getFirebaseInfo(): Promise<[string, string]> {
