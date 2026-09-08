@@ -59,4 +59,22 @@ export const StyleCatalog: Record<Styles, StyleContext> = <const>{
 			included: ["Light", "Heavy"],
 		},
 	},
+	Boxing: {
+		damage: {
+			potency: 1.11,
+			included: ["Light", "Heavy"],
+		},
+		speed: {
+			potency: 1.3,
+			included: ["Light", "Heavy"],
+		},
+		range: {
+			potency: 1,
+			included: ["Light", "Heavy"],
+		},
+		stun: {
+			potency: 1,
+			included: ["Light", "Heavy"],
+		},
+	},
 };

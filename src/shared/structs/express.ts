@@ -1,18 +1,19 @@
-export interface ExpressConfiguration {
-	delay: number;
-	loopAmount: number;
-	threadCap: 5;
+export interface JobConfiguration {
+	id: string;
+	callback: Callback;
+	popOnEnd?: boolean;
+	args?: unknown[];
+	delay?: number;
+	loopAmount?: number;
 }
 
 export interface ExpressMetadata {
-	threads: number;
-	queued: number;
-	threadCap: number;
-	startTick: number;
-	loops: number;
+	jobs: number;
 }
 
-export interface ExpressCoreData {
-	core: Promise<unknown>;
+export interface JobCoreData<T = unknown> {
+	promise: Promise<T>;
 	thread: thread;
 }
+
+export type JobStatus = "Running" | "Finished" | "Cancelled" | "Not Started";
