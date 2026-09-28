@@ -1,13 +1,13 @@
 import { Controller } from "@flamework/core";
 import { Workspace as World } from "@rbxts/services";
 import { ClientDebugger } from "client/classes/client-debugger";
-import { FlameworkCharms } from "shared/constants";
-import { OnCharmSubscribed } from "shared/decorators";
+import { OnJournalEntrySubscribed } from "client/decorators";
+import { MiscState } from "shared/enums/config-enum";
 
 @Controller()
 export class HurtboxViewDebugController extends ClientDebugger {
 	readonly folder: Folder = World.WaitForChild("Hurtbox");
-	@OnCharmSubscribed(FlameworkCharms.Debug)
+	@OnJournalEntrySubscribed(MiscState.Debug)
 	public onDebug(on: boolean): void {
 		if (on) this._start();
 		else this._end();

@@ -3,34 +3,28 @@ import type { LogStart, OnCharacterLoaded } from "shared/hooks";
 import { CombatState, MiscState, MovementState, StateEvents } from "shared/enums/config-enum";
 import type { CharacterController } from "./character";
 import type { CameraController } from "./camera";
-import type { StateType } from "shared/structs/websocket";
-import { CharmHandler } from "shared/classes/charm-handler";
-import type { SprintController } from "./sprint";
 import { Tilter } from "client/components/character/tilter";
-import type { WebsocketManagementController } from "./websocket-manager";
-import type { WebsocketController } from "./state";
 import { OnSignalSubscribed } from "shared/decorators";
+import type { JournalController } from "./journal";
+import { JournalHandler } from "shared/classes/journal-handler";
 
 @Controller()
-export class CFrameController extends CharmHandler<boolean> implements OnStart, OnRender, LogStart, OnCharacterLoaded {
-	public charm!: StateType<boolean>;
+export class CFrameController extends JournalHandler implements OnStart, OnRender, LogStart, OnCharacterLoaded {
+	// public charm!: StateType<boolean>;
 	private tilter: Maybe<Tilter>;
 	private lockedYaw: Maybe<number>;
 	constructor(
 		private readonly character: CharacterController,
-		private readonly movement: SprintController,
 		private readonly cameras: CameraController,
-		private readonly wsm: WebsocketManagementController,
-		private readonly ws: WebsocketController,
+		readonly journal: JournalController,
 	) {
-		super((...args) => ws.get(...args), MovementState.Shiftlocked);
+		super(journal.util);
 	}
 	public onStart(): void {
-		this.giveCharmMethods({
-			// NonShiftlock CFrame
-			blacklist: {
-				call: (...args) => this.ws.getBoardTrayTypeCallback(...args),
-				names: [
+		this.runMethods([
+			{
+				handleType: "blacklist",
+				paths: [
 					CombatState.FullStunned,
 					CombatState.BlockBroken,
 					CombatState.Exhausted,
@@ -40,11 +34,11 @@ export class CFrameController extends CharmHandler<boolean> implements OnStart, 
 					CombatState.Ragdoll,
 					MiscState.Cutscene,
 				],
+				behavior: "Run If Single True",
 			},
-			// NonTiltable
-			whitelist: {
-				call: (...args) => this.ws.getBoardTrayTypeCallback(...args),
-				names: [
+			{
+				handleType: "whitelist",
+				paths: [
 					CombatState.Attacking,
 					CombatState.Windup,
 					CombatState.Recovery,
@@ -58,13 +52,14 @@ export class CFrameController extends CharmHandler<boolean> implements OnStart, 
 					CombatState.Exhausted,
 					CombatState.NoRotate,
 				],
+				behavior: "Run If Single True",
 			},
-		});
+		]);
 	}
 
 	public async onCharacterAdd(character: CharacterModel): Promise<void> {
 		this.tilter = Tilter.create(character);
-		this.wsm.setState(MovementState.Shiftlocked, false);
+		this.journalUtil.write(MovementState.Shiftlocked, false);
 		// this.tilter.enable();
 	}
 
@@ -72,22 +67,27 @@ export class CFrameController extends CharmHandler<boolean> implements OnStart, 
 		const character = this.character.get();
 		const root = this.character.getRoot();
 		const humanoid = this.character.getHumanoid();
+		const status = this.journalUtil.read<boolean>(MovementState.Shiftlocked);
 		if (!character || !root || !humanoid || !this.tilter) return;
 		if (
-			(this.isWhitelisted() || !this.charm.status || humanoid.GetState() === Enum.HumanoidStateType.Dead) &&
+			(this.isWhitelisted() || !status || humanoid.GetState() === Enum.HumanoidStateType.Dead) &&
 			this.tilter.enabled
 		)
 			this.tilter.disable();
-		else if (this.charm.status && !this.tilter.enabled) this.tilter.enable();
+		else if (this.journalUtil.read<boolean>(MovementState.Shiftlocked) && !this.tilter.enabled)
+			this.tilter.enable();
 
 		if (!this.isBlacklisted() && this.lockedYaw) this.lockedYaw = undefined;
 
-		if (this.charm.status && !this.movement.charm.status && !this.isBlacklisted()) {
+		if (status && !this.journalUtil.read<boolean>(MovementState.Sprint) && !this.isBlacklisted()) {
 			this.setAutoRotate(humanoid, false);
 			this.set(root, this.renderShiftlock(root));
 		} else if (
 			this.isBlacklisted() &&
-			this.wsm.isStatesEqualTo([CombatState.Knocked, CombatState.Ragdoll, CombatState.Exhausted], false)
+			this.journalUtil.isPathValuesEqualTo(
+				[CombatState.Knocked, CombatState.Ragdoll, CombatState.Exhausted],
+				false,
+			)
 		) {
 			if (!this.lockedYaw) {
 				const [, y] = root.CFrame.ToOrientation();
@@ -102,7 +102,7 @@ export class CFrameController extends CharmHandler<boolean> implements OnStart, 
 
 	@OnSignalSubscribed(StateEvents[MovementState.Shiftlocked])
 	public onShiftlock() {
-		this.wsm.setState(MovementState.Shiftlocked, !this.charm.status);
+		this.journalUtil.write(MovementState.Shiftlocked, !this.journalUtil.read(MovementState.Shiftlocked));
 	}
 
 	private set(root: BasePart, cframe: CFrame) {

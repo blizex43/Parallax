@@ -1,10 +1,9 @@
 import { Service } from "@flamework/core";
 import type { OnCharacterAdd, OnCharacterRemove } from "shared/hooks";
 import type { RagdollService } from "./ragdoll";
-import type { WebsocketManagementService } from "./websocket-manager";
 import { SpawnTask } from "shared/decorators";
-import type { WebsocketUtilities } from "shared/classes/websocket-utilities";
 import { Janitor } from "@rbxts/janitor";
+import { isEmpty } from "@rbxts/object-utils";
 import { stringHas } from "shared/utility/strings";
 import { isFunction, isString } from "shared/utility/t-isA";
 import { CombatState, MiscState, MovementState } from "shared/enums/config-enum";
@@ -17,6 +16,8 @@ import { DashProperties } from "shared/enums/push-enum";
 import type { DashService } from "./dash";
 import { DependerAtom } from "shared/structs/atom";
 import Log from "shared/log";
+import type { JournalService } from "./journal";
+import type { JournalUtil } from "shared/classes/journal-util";
 
 @Service()
 export class StateDependerService implements OnCharacterAdd, OnCharacterRemove {
@@ -24,127 +25,149 @@ export class StateDependerService implements OnCharacterAdd, OnCharacterRemove {
 	public constructor(
 		private readonly ragdoll: RagdollService,
 		private readonly block: BlockService,
-		private readonly ws: WebsocketManagementService,
+		private readonly journal: JournalService,
 		private readonly sprint: SprintService,
 		private readonly dash: DashService,
-	) {}
+	) { }
 
 	@SpawnTask()
 	public onCharacterAdd(character: CharacterModel): void {
-		const manager = this.ws.getManager(character);
-		if (!manager) return;
-		this.run(character, manager);
+		const util = this.journal.fetchUtil(character);
+		if (!util) return;
+		const janitor = new Janitor();
+		this.cache.set(character, janitor);
+		this.run(character, util, janitor);
 	}
 	@SpawnTask()
 	public onCharacterRemove(character: CharacterModel): void {
 		this.reset(character);
+		this.cache.get(character)?.Destroy();
+		this.cache.delete(character);
 	}
 
-	public depend_combat_tag(character: CharacterModel, manager: WebsocketUtilities) {
-		const combatTagAccumuator = manager.get<DependerAtom>(CombatState.CombatTagAccumulator);
-		const combatTag = manager.get<boolean>(CombatState.CombatTag);
-		combatTag.__janitor.Add(
-			combatTagAccumuator.changed.Connect(() => {
-				const newValue = !this.ws.getDependerTrueStateValue(character, CombatState.CombatTagAccumulator);
-				print(newValue, this.ws.getStateValue(character, CombatState.CombatTagAccumulator));
-				if (this.ws.getStateValue(character, CombatState.CombatTag) !== newValue)
-					this.ws.setState(character, CombatState.CombatTag, newValue);
+	public depend_combat_tag(character: CharacterModel, util: JournalUtil, janitor: Janitor) {
+		janitor.Add(
+			util.getPathChanged<DependerAtom>(CombatState.CombatTagAccumulator).Connect(() => {
+				const accumulator = util.read<DependerAtom>(CombatState.CombatTagAccumulator) ?? {};
+				const newValue = isEmpty(accumulator);
+				if (util.read<boolean>(CombatState.CombatTag) !== newValue)
+					this.journal.writeStateValue(character, CombatState.CombatTag, newValue);
 			}),
 		);
-		combatTag.__janitor.Add(combatTag.changed.Connect((on) => Log.info(`${on}`, ["Combat Tag"])));
-	}
-
-	public depend_ragdoll(character: CharacterModel, manager: WebsocketUtilities): void {
-		const ragdolled = manager.get<boolean>(CombatState.Ragdoll);
-		const knocked = manager.get<boolean>(CombatState.Knocked);
-		const exhausted = manager.get<boolean>(CombatState.Exhausted); // Temporarily Ragdolls for now
-		ragdolled.__janitor.Add(
-			ragdolled.changed.Connect((newValue) =>
-				newValue
-					? this.ragdoll.ragdoll(character, { keepVelocity: true })
-					: !knocked.status
-						? this.ragdoll.deragdoll(character)
-						: undefined,
-			),
-		);
-		knocked.__janitor.Add(
-			knocked.changed.Connect((newValue) =>
-				newValue
-					? this.ragdoll.ragdoll(character, { keepVelocity: true })
-					: !ragdolled.status
-						? this.ragdoll.deragdoll(character)
-						: undefined,
-			),
-		);
-		exhausted.__janitor.Add(
-			exhausted.changed.Connect((newValue) =>
-				newValue
-					? this.ragdoll.ragdoll(character, { keepVelocity: true })
-					: !ragdolled.status
-						? this.ragdoll.deragdoll(character)
-						: undefined,
-			),
+		janitor.Add(
+			util
+				.getPathChanged<boolean>(CombatState.CombatTag)
+				.Connect(({ newValue }) => Log.info(`${newValue}`, ["Combat Tag"])),
 		);
 	}
 
-	public depend_dash(character: CharacterModel, manager: WebsocketUtilities): void {
-		const dash = manager.get<boolean>(MovementState.Dash);
-		dash.__janitor.Add(
+	public depend_ragdoll(character: CharacterModel, util: JournalUtil, janitor: Janitor): void {
+		janitor.Add(
+			util
+				.getPathChanged<boolean>(CombatState.Ragdoll)
+				.Connect(({ newValue }) =>
+					newValue
+						? this.ragdoll.ragdoll(character, { keepVelocity: true })
+						: !util.read<boolean>(CombatState.Knocked)
+							? this.ragdoll.deragdoll(character)
+							: undefined,
+				),
+		);
+		janitor.Add(
+			util
+				.getPathChanged<boolean>(CombatState.Knocked)
+				.Connect(({ newValue }) =>
+					newValue
+						? this.ragdoll.ragdoll(character, { keepVelocity: true })
+						: !util.read<boolean>(CombatState.Ragdoll)
+							? this.ragdoll.deragdoll(character)
+							: undefined,
+				),
+		);
+		janitor.Add(
+			util
+				.getPathChanged<boolean>(CombatState.Exhausted)
+				.Connect(({ newValue }) =>
+					newValue
+						? this.ragdoll.ragdoll(character, { keepVelocity: true })
+						: !util.read<boolean>(CombatState.Ragdoll)
+							? this.ragdoll.deragdoll(character)
+							: undefined,
+				),
+		);
+	}
+
+	public depend_dash(character: CharacterModel, util: JournalUtil, janitor: Janitor): void {
+		janitor.Add(
 			Events.game.dash.connect((player, { buffer, blobs }) => {
 				const packet = Serializers.dash.deserialize(buffer, blobs);
 				if (!packet.on) return;
 				if (player.Character === character)
-					this.ws.setStateFor(character, MovementState.Dash, packet.on, DashProperties.Cooldown, false, true);
+					util.writeFor(MovementState.Dash, packet.on, DashProperties.Cooldown, false, true);
 			}),
 		);
-		dash.__janitor.Add(dash.changed.Connect((value) => this.dash.handleDash(character, value)));
+		janitor.Add(
+			util
+				.getPathChanged<boolean>(MovementState.Dash)
+				.Connect(({ newValue }) => this.dash.handleDash(character, newValue)),
+		);
 	}
 
-	public depend_sprint(character: CharacterModel, manager: WebsocketUtilities): void {
-		const sprint = manager.get<boolean>(MovementState.Sprint);
-		sprint.__janitor.Add(
+	public depend_sprint(character: CharacterModel, util: JournalUtil, janitor: Janitor): void {
+		janitor.Add(
 			Events.game.sprint.connect((player, { buffer, blobs }) => {
 				const packet = Serializers.sprint.deserialize(buffer, blobs);
-				if (player.Character === character) this.ws.setState(character, MovementState.Sprint, packet.on);
+				if (player.Character === character)
+					this.journal.writeStateValue(character, MovementState.Sprint, packet.on);
 			}),
 		);
-		sprint.__janitor.Add(sprint.changed.Connect((value) => this.sprint.handleSprint(character, value)));
+		janitor.Add(
+			util
+				.getPathChanged<boolean>(MovementState.Sprint)
+				.Connect(({ newValue }) => this.sprint.handleSprint(character, newValue)),
+		);
 	}
 
-	public depend_block(character: CharacterModel, manager: WebsocketUtilities): void {
-		const block = manager.get<boolean>(CombatState.Block);
-		const blockBroken = manager.get<boolean>(CombatState.BlockBroken);
-		block.__janitor.Add(
+	public depend_block(character: CharacterModel, util: JournalUtil, janitor: Janitor): void {
+		janitor.Add(
 			Events.game.block.connect((player, { buffer, blobs }) => {
 				const packet = Serializers.block.deserialize(buffer, blobs);
-				if (player.Character === character && !blockBroken.status)
-					this.ws.setState(character, CombatState.Block, packet.on);
+				if (player.Character === character && !util.read<boolean>(CombatState.BlockBroken))
+					this.journal.writeStateValue(character, CombatState.Block, packet.on);
 			}),
 		);
-		block.__janitor.Add(block.changed.Connect((value) => this.block.handleBlock(character, value)));
-		blockBroken.__janitor.Add(blockBroken.changed.Connect(() => this.block.handleBlock(character, false)));
+		janitor.Add(
+			util
+				.getPathChanged<boolean>(CombatState.Block)
+				.Connect(({ newValue }) => this.block.handleBlock(character, newValue)),
+		);
+		janitor.Add(
+			util
+				.getPathChanged<boolean>(CombatState.BlockBroken)
+				.Connect(() => this.block.handleBlock(character, false)),
+		);
 	}
 
-	private run(character: CharacterModel, manager: WebsocketUtilities) {
+	private run(character: CharacterModel, util: JournalUtil, janitor: Janitor) {
 		for (const [name, value] of pairs(proto(this)))
-			if (isString(name) && stringHas(name, "depend") && isFunction(value)) value(this, character, manager);
+			if (isString(name) && stringHas(name, "depend") && isFunction(value)) value(this, character, util, janitor);
 	}
 
 	private reset(character: CharacterModel) {
-		this.ws.setState(character, CombatState.Ragdoll, false);
-		this.ws.setState(character, CombatState.Block, false);
-		this.ws.setState(character, CombatState.BlockBroken, false);
-		this.ws.setState(character, CombatState.CombatEquip, false);
-		this.ws.setState(character, CombatState.Windup, false);
-		this.ws.setState(character, CombatState.Attacking, false);
-		this.ws.setState(character, CombatState.Recovery, false);
-		this.ws.setState(character, CombatState.Exhausted, false);
-		this.ws.setState(character, CombatState.Stunned, false);
-		this.ws.setState(character, CombatState.FullStunned, false);
-		this.ws.setState(character, CombatState.Knocked, false);
-		this.ws.setState(character, CombatState.StopHealthRegen, false);
-		this.ws.setState(character, MovementState.Sprint, false);
-		this.ws.setState(character, CombatState.Exhausted, false);
-		this.ws.setState(character, MiscState.Cutscene, false);
+		this.journal.writeStateValue(character, CombatState.Ragdoll, false);
+		this.journal.writeStateValue(character, CombatState.Block, false);
+		this.journal.writeStateValue(character, CombatState.BlockBroken, false);
+		this.journal.writeStateValue(character, CombatState.CombatEquip, false);
+		this.journal.writeStateValue(character, CombatState.Windup, false);
+		this.journal.writeStateValue(character, CombatState.Attacking, false);
+		this.journal.writeStateValue(character, CombatState.Recovery, false);
+		this.journal.writeStateValue(character, CombatState.Exhausted, false);
+		this.journal.writeStateValue(character, CombatState.Stunned, false);
+		this.journal.writeStateValue(character, CombatState.FullStunned, false);
+		this.journal.writeStateValue(character, CombatState.Knocked, false);
+		this.journal.writeStateValue(character, CombatState.StopHealthRegen, false);
+		this.journal.writeStateValue(character, MovementState.Sprint, false);
+		this.journal.writeStateValue(character, CombatState.Exhausted, false);
+		this.journal.writeStateValue(character, MiscState.Cutscene, false);
 	}
 }

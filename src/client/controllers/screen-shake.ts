@@ -4,27 +4,29 @@ import { LinkSerializedRemote } from "client/decorators";
 import { Events } from "client/network";
 import { Serializers } from "shared/network";
 import type { ScreenshakePropertiesType } from "shared/structs/screen-shake";
-import type { WebsocketManagementController } from "./websocket-manager";
 import { CameraState } from "shared/enums/config-enum";
 import type { CameraController } from "./camera";
 import { SuperJanitor } from "shared/classes/super-janitor";
 import { noop } from "shared/utility/functions";
+import type { JournalController } from "./journal";
 
 @Controller()
 export class ScreenShakeController implements OnStart {
 	public readonly lastUsedScreenshake: Maybe<ScreenshakePropertiesType>;
 	public readonly propertiesChanged: Signal<(properties: ScreenshakePropertiesType) => void> = new Signal();
 	public constructor(
-		public readonly ws: WebsocketManagementController,
+		public readonly journal: JournalController,
 		private readonly camera: CameraController,
 	) {}
 	public onStart(): void {
-		this.ws.getChangedSignal<boolean>(CameraState.Screenshake).Connect((value) => this.onScreenshakeChanged(value));
+		this.journal.util
+			.getPathChanged<boolean>(CameraState.Screenshake)
+			.Connect((value) => this.onScreenshakeChanged(value.newValue));
 	}
 	@LinkSerializedRemote(Events.camera.screenshake, Serializers.screenshake)
 	public onPropertiesRecieved(this: Writable<ScreenShakeController>, properties: ScreenshakePropertiesType): void {
 		this.lastUsedScreenshake = properties;
-		this.ws.setStateFor(CameraState.Screenshake, true, properties.duration, false, true);
+		this.journal.util.writeFor(CameraState.Screenshake, true, properties.duration, false, true);
 		this.propertiesChanged.Fire(properties);
 	}
 

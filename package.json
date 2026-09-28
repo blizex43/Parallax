@@ -49,6 +49,8 @@
 		"@flamework/components": "latest",
 		"@flamework/core": "latest",
 		"@flamework/networking": "latest",
+		"@rbxts/action-journal": "^1.0.2",
+		"@rbxts/aegis": "^1.0.1",
 		"@rbxts/array-utils": "^1.0.2",
 		"@rbxts/atlas": "^1.1.4",
 		"@rbxts/builders": "^1.0.2",
@@ -58,11 +60,14 @@
 		"@rbxts/cmdr": "^1.12.1",
 		"@rbxts/color": "^0.1.4",
 		"@rbxts/colour-utils": "^1.4.1",
+		"@rbxts/conch": "^0.3.1",
+		"@rbxts/conch-ui": "^0.3.1",
+		"@rbxts/default": "^1.0.0",
 		"@rbxts/destroyable": "^1.0.9",
 		"@rbxts/ez-log": "^1.0.3",
 		"@rbxts/falldown": "^1.0.4",
 		"@rbxts/firebase": "^1.0.2",
-		"@rbxts/flamework-binary-serializer": "^0.6.0",
+		"@rbxts/flamework-binary-serializer": "^0.1.1",
 		"@rbxts/flamework-meta-utils": "^1.0.7",
 		"@rbxts/hashlib": "^1.0.1",
 		"@rbxts/humanoid-stat-manager": "^1.0.31",
@@ -91,5 +96,8 @@
 		"@zilibobi/forge-vfx": "^2.4.0",
 		"node": "^18.20.8",
 		"rbxts-transform-debug": "^2.2.0"
+	},
+	"allowScripts": {
+		"@rbxts/aegis@1.0.1": true
 	}
 }

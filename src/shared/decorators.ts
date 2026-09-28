@@ -179,18 +179,7 @@ export function LogBenchmark<Args extends unknown[] = unknown[]>(
 	};
 }
 
-/** This atom is subscribed to, and every time the value is changed, it fires the given function. */
-export function OnCharmSubscribed<T extends number | boolean, O extends void = void>(atom: Charm.Atom<T>) {
-	return (
-		ctor: object,
-		propertyKey: string,
-		descriptor: TypedPropertyDescriptor<(this: unknown, ...input: unknown[]) => O>,
-	) => {
-		FlameworkIgnited.Once(() => {
-			Charm.subscribe(atom, (state, oldState) => callMethodOnDependencies(ctor, descriptor, state, oldState));
-		});
-	};
-}
+
 
 /** This Decorator will not run the function if the function returns false. */
 export const IgnoreIfNot = Modding.createDecorator<[boolCallback: () => boolean]>(

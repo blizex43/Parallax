@@ -1,6 +1,5 @@
 import { Service } from "@flamework/core";
 import type { HitData } from "shared/structs/attack";
-import type { WebsocketManagementService } from "./websocket-manager";
 import { CameraState, MiscState } from "shared/enums/config-enum";
 import { ClashProperties } from "shared/enums/clash-enum";
 import type { AnimationReplicatorService } from "./animation-replicator";
@@ -13,11 +12,12 @@ import { FieldOfViewPresets } from "shared/enums/field-of-view-enum";
 import { forLoopArrayExpression } from "shared/utility/loop";
 import { SuperJanitor } from "shared/classes/super-janitor";
 import { noop } from "shared/utility/functions";
+import type { JournalService } from "./journal";
 @Service()
 export class ClashService {
 	private recentClashes: CharacterModel[] = [];
 	public constructor(
-		private readonly ws: WebsocketManagementService,
+		private readonly journal: JournalService,
 		private readonly replicator: AnimationReplicatorService,
 		private readonly util: DamageUtilService,
 		private readonly push: PushService,
@@ -31,22 +31,25 @@ export class ClashService {
 		this.giveClashCooldown(attackedCharacter, attackerCharacter);
 		const attackedClashAnim = this.util.get_clash_anim(attackedCharacter) ?? "clash1";
 		const attackerClashAnim = this.util.get_clash_anim(attackerCharacter) ?? "clash1";
-		this.ws.setStateFor(
-			attackedCharacter,
-			MiscState.Cutscene,
-			true,
-			ClashProperties.Duration + ClashProperties.KnockbackDuration,
-			false,
-			true,
-		);
-		this.ws.setStateFor(
-			attackerCharacter,
-			MiscState.Cutscene,
-			true,
-			ClashProperties.Duration + ClashProperties.KnockbackDuration,
-			false,
-			true,
-		);
+
+		this.journal
+			.fetchUtil(attackedCharacter)
+			?.writeFor(
+				MiscState.Cutscene,
+				true,
+				ClashProperties.Duration + ClashProperties.KnockbackDuration,
+				false,
+				true,
+			);
+		this.journal
+			.fetchUtil(attackerCharacter)
+			?.writeFor(
+				MiscState.Cutscene,
+				true,
+				ClashProperties.Duration + ClashProperties.KnockbackDuration,
+				false,
+				true,
+			);
 		this.replicator.replicate(attackedCharacter, attackedClashAnim, true, true);
 		this.replicator.replicate(attackerCharacter, attackerClashAnim, true, true);
 		this.sendFieldOfView(attackedCharacter, attackerCharacter);
@@ -79,21 +82,20 @@ export class ClashService {
 
 	private sendScreenshake(...characters: CharacterModel[]) {
 		for (const character of characters) {
-			this.ws.setStateFor(character, CameraState.Clashing, true, ClashProperties.Duration, false, true);
+			this.journal
+				.fetchUtil(character)
+				?.writeFor(CameraState.Clashing, true, ClashProperties.Duration, false, true);
 			this.screenshake.invoke(character, ScreenShakePresets.Clash);
 		}
 	}
 
 	private sendFieldOfView(...characters: CharacterModel[]) {
 		for (const character of characters) {
-			this.ws.setStateFor(
-				character,
-				CameraState.FieldOfViewManipulate,
-				true,
-				ClashProperties.Duration,
-				false,
-				true,
-			);
+			const util = this.journal.fetchUtil(character);
+			if (!util) continue;
+			this.journal
+				.fetchUtil(character)
+				?.writeFor(CameraState.FieldOfViewManipulate, true, ClashProperties.Duration, false, true);
 			this.fieldofview.invoke(character, FieldOfViewPresets.Clash);
 		}
 	}

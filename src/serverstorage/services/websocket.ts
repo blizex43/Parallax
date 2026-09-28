@@ -89,11 +89,6 @@ export class WebsocketService implements OnInit, LogStart, OnNPCDestroyed {
 		if (WebsocketUtilities) WebsocketUtilities.set(key, value);
 	}
 
-	private notifyHooks(plaracter: Plaracter, mgr: WebsocketUtilities, on: boolean) {
-		if (on) this.wsCreated.Fire(plaracter, mgr);
-		else this.wsDestroying.Fire(plaracter, mgr);
-	}
-
 	private connectHydrateEvent() {
 		Events.state.hydrate.connect((player) => {
 			const state = this.playerStates.get(player);

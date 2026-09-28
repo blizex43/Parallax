@@ -4,15 +4,12 @@ import { AxisAction, AxisActionBuilder, StandardActionBuilder } from "@rbxts/mec
 import { RaycastParamsBuilder } from "@rbxts/builders";
 import Charm, { atom } from "@rbxts/charm";
 import Signal from "@rbxts/signal";
-
-import { OnInput, OnAxisInput, OnInputRelease, inputManager } from "client/decorators";
+import { OnInput, OnAxisInput, OnInputRelease, inputManager, OnJournalEntrySubscribed } from "client/decorators";
 import { Player } from "client/utility";
 import { ActionID } from "./input";
-import { FlameworkCharms } from "shared/constants";
-import { OnCharmSubscribed } from "shared/decorators";
 import { BaseShiftlockAddress } from "shared/enums/mouse-enum";
 import { BaseControlsEnum } from "shared/enums/input-enum";
-import { CombatState, StateEvents } from "shared/enums/config-enum";
+import { CombatState, MovementState, StateEvents } from "shared/enums/config-enum";
 
 const { abs } = math;
 
@@ -101,7 +98,7 @@ export class MouseController implements OnInit, OnRender {
 	}
 
 	/** @hidden */
-	@OnCharmSubscribed(<Charm.Atom<boolean>>FlameworkCharms.Shiftlocked)
+	@OnJournalEntrySubscribed(MovementState.Shiftlocked)
 	public onShiftlock(on: boolean) {
 		const behavior = on ? Enum.MouseBehavior.LockCenter : Enum.MouseBehavior.Default;
 		this.behavior(behavior);

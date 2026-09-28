@@ -5,7 +5,7 @@ import { stringHas } from "shared/utility/strings";
 import { LinkSerializedRemote } from "serverstorage/decorators";
 import { Events } from "serverstorage/network";
 import { Serializers } from "shared/network";
-import type { WebsocketManagementService } from "./websocket-manager";
+import type { JournalService } from "./journal";
 import { MiscState } from "shared/enums/config-enum";
 import { EffectTimeout } from "shared/enums/effect-enum";
 import { VFXExtendable } from "shared/classes/effect-replicate";
@@ -13,7 +13,7 @@ import { VFXExtendable } from "shared/classes/effect-replicate";
 export class VFXService extends VFXExtendable implements OnInit {
 	constructor(
 		private readonly debug: DebugService,
-		private readonly ws: WebsocketManagementService,
+		private readonly journal: JournalService,
 	) {
 		super();
 	}
@@ -25,7 +25,7 @@ export class VFXService extends VFXExtendable implements OnInit {
 	public remoteEffect(player: Player, effectPacket: EffectPacket) {
 		if (!this.eligibleForReplication(player)) return;
 		this.effectReplicate(effectPacket);
-		this.ws.setStateFor(player, MiscState.Effect, true, EffectTimeout, false, true);
+		this.journal.fetchUtil(player)?.writeFor(MiscState.Effect, true, EffectTimeout, false, true);
 	}
 
 	public effectReplicate(effectPacket: EffectPacket) {
@@ -45,7 +45,7 @@ export class VFXService extends VFXExtendable implements OnInit {
 	}
 
 	private eligibleForReplication(player: Player): boolean {
-		const effected = this.ws.getStateValue<boolean>(player, MiscState.Effect);
+		const effected = this.journal.fetchStateValue<boolean>(player, MiscState.Effect);
 		return !effected;
 	}
 }

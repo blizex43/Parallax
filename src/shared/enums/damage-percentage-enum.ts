@@ -1,8 +1,6 @@
 import type { Janitor } from "@rbxts/janitor";
-import type { WebsocketUtilities } from "shared/classes/websocket-utilities";
 
-export interface ManagerCleanType {
-	manager: WebsocketUtilities;
+export interface JournalCleanType {
 	janitor: Janitor;
 }
 

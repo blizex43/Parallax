@@ -1,4 +1,4 @@
-import { Modding } from "@flamework/core";
+import { Dependency, Modding } from "@flamework/core";
 import { InputManager, StandardAction, AxisAction } from "@rbxts/mechanism";
 import { callMethodOnDependencies } from "@rbxts/flamework-meta-utils";
 import type { ClientReceiver as ClientEventReceiver } from "@flamework/networking/out/events/types";
@@ -7,6 +7,8 @@ import type { Serializer } from "@rbxts/flamework-binary-serializer";
 
 import { FlameworkCharms, FlameworkIgnited } from "shared/constants";
 import Log from "shared/log";
+import Charm from "@rbxts/charm";
+import { JournalController } from "./controllers/journal";
 
 export const inputManager = new InputManager();
 
@@ -106,3 +108,33 @@ export const DebugOnly = Modding.createDecorator("Method", (descriptor) => {
 		if (debug()) originalMethod(...args);
 	};
 });
+
+/** This atom is subscribed to, and every time the value is changed, it fires the given function. */
+export function OnCharmSubscribed<T extends number | boolean, O extends void = void>(atom: Charm.Atom<T>) {
+	return (
+		ctor: object,
+		propertyKey: string,
+		descriptor: TypedPropertyDescriptor<(this: unknown, ...input: unknown[]) => O>,
+	) => {
+		FlameworkIgnited.Once(() => {
+			Charm.subscribe(atom, (state, oldState) => callMethodOnDependencies(ctor, descriptor, state, oldState));
+		});
+	};
+}
+
+/** This decorator subscribes the decorated method to changes in a journal entry. */
+export function OnJournalEntrySubscribed<O extends void = void>(chunkOrPath: string) {
+	return (
+		ctor: object,
+		propertyKey: string,
+		descriptor: TypedPropertyDescriptor<(this: unknown, ...input: unknown[]) => O>,
+	) => {
+		FlameworkIgnited.Once(() => {
+			const { util } = Dependency<JournalController>();
+			const path = util.resolvePathOrChunkToPath(chunkOrPath);
+			if (!path) throw Log.fatal(`Failed to resolve path for chunk or path: ${chunkOrPath}`);
+			const connection = util.getPathChanged(path);
+			connection.Connect((info) => callMethodOnDependencies(ctor, descriptor, info.newValue, info.oldValue));
+		});
+	};
+}

@@ -1,16 +1,56 @@
 import { getChildrenOfType } from "@rbxts/instance-utility";
 import Object from "@rbxts/object-utils";
 import { RunService as run } from "@rbxts/services";
-import type { EffectModule, EffectName, PacketSafeEffectOptions, StandardEffect } from "shared/structs/effect";
+import type {
+	EffectInfo,
+	EffectModule,
+	EffectName,
+	PacketSafeEffectOptions,
+	StandardEffect,
+	VFXMetadata,
+} from "shared/structs/effect";
 import type { EffectPacket } from "shared/structs/packets";
 import { getClosestPlayers } from "shared/utility/instance";
 import { getInstanceAtPath } from "shared/utility/meta";
-export abstract class VFXExtendable {
+import { isThrottled, now } from "shared/utility/time";
+
+abstract class VFXInfo {
+	protected readonly metadata: VFXMetadata = { lastEffectUsed: undefined, effectData: new Map() };
+	constructor() {}
+	protected write<M extends Exclude<keyof VFXMetadata, "effectData">, V extends VFXMetadata[M]>(
+		metaname: M,
+		value: V,
+	) {
+		this.metadata[metaname] = value;
+	}
+
+	protected read<M extends keyof VFXMetadata, T extends VFXMetadata[M]>(metaname: M): T {
+		return <T>this.metadata[metaname];
+	}
+
+	protected readEffect<M extends keyof EffectInfo, T extends EffectInfo[M]>(
+		effect: EffectName,
+		metaname: M,
+	): Maybe<T> {
+		const effectInfo = this.metadata.effectData.get(effect);
+		if (!effectInfo) return;
+		return <T>effectInfo[metaname];
+	}
+
+	protected documentEffectInfo(effect: EffectName): void {
+		this.metadata.effectData.set(effect, {
+			lastUsed: now(),
+		});
+	}
+}
+export abstract class VFXExtendable extends VFXInfo {
 	protected readonly requiredModules: Record<string, EffectModule> = {};
 	protected readonly savedEffects: Map<CharacterModel, Record<EffectName, StandardEffect>> = new Map();
 	public async invokeSelf(name: EffectName, options: PacketSafeEffectOptions): Promise<void> {
 		const { character } = options;
-
+		const throttlable = options.timeout;
+		const lastUsed = this.readEffect(name, "lastUsed");
+		if (throttlable && lastUsed && isThrottled(lastUsed, throttlable)) return;
 		const formatted = name.lower();
 
 		if (!(formatted in this.requiredModules)) {
@@ -53,6 +93,8 @@ export abstract class VFXExtendable {
 				this.callPropertyOfEffect(instance, options);
 			}
 		}
+		this.write("lastEffectUsed", name);
+		this.documentEffectInfo(name);
 	}
 	protected callPropertyOfEffect(
 		instance: StandardEffect,

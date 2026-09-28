@@ -7,13 +7,13 @@ import { Events } from "serverstorage/network";
 import { OnSignalSubscribed } from "shared/decorators";
 import { MiscState } from "shared/enums/config-enum";
 import LazyIterator from "@rbxts/lazy-iterator";
-import type { WebsocketManagementService } from "./websocket-manager";
+import type { JournalService } from "./journal";
 @Service({ loadOrder: -2000 })
 export class DebugService implements OnInit, LogStart {
 	public readonly enabled: Charm.Atom<boolean> = atom(false);
 	public readonly debugCallbacks: Callback[] = [];
 	public readonly participants: Set<Player> = new Set();
-	constructor(private readonly ws: WebsocketManagementService) { }
+	constructor(private readonly journal: JournalService) {}
 	public onInit(): void {
 		if (run.IsStudio()) this.enable();
 	}
@@ -49,7 +49,7 @@ export class DebugService implements OnInit, LogStart {
 	}
 
 	public publishToClient(player: Player, on: boolean): void {
-		return void this.ws.setState(player, MiscState.Debug, on);
+		return this.journal.writeStateValue(player, MiscState.Debug, on);
 	}
 
 	public run(): void {

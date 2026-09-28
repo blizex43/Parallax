@@ -7,16 +7,16 @@ import { Player } from "client/utility";
 import type { TrackEventSignal } from "shared/structs/trackvents";
 import { Players } from "@rbxts/services";
 import type { TrackEventsController } from "./track-events";
-import type { WebsocketManagementController } from "./websocket-manager";
 import { MovementState } from "shared/enums/config-enum";
+import type { JournalController } from "./journal";
 
 @Controller()
 export class SignalEventHandlerController implements OnCharacterAdd, OnCharacterRemove {
 	private readonly janitor: Janitor = new Janitor();
 	public constructor(
 		private readonly trackEvent: TrackEventsController,
-		private readonly ws: WebsocketManagementController,
-	) { }
+		private readonly journal: JournalController,
+	) {}
 
 	public async onCharacterAdd(character: CharacterModel): Promise<void> {
 		await this.trackEvent.getCharacterRegistered(character);
@@ -28,10 +28,11 @@ export class SignalEventHandlerController implements OnCharacterAdd, OnCharacter
 	}
 
 	private hookCharacterEvents(character: CharacterModel) {
+		const { util } = this.journal
 		const connect = (signal: TrackEventSignal, alternate: boolean, walking: boolean = false) => {
 			this.janitor.Add(
 				signal.Connect(() => {
-					if (walking && this.ws.getStateValue(MovementState.Sprint)) return;
+					if (walking && util.read(MovementState.Sprint)) return;
 					Events.effect.replicate.predict(
 						Serializers.effect.serialize({
 							name: "Footstep",
@@ -39,6 +40,7 @@ export class SignalEventHandlerController implements OnCharacterAdd, OnCharacter
 								alternate,
 								character,
 								players: [Player],
+								timeout: 0.1,
 							},
 						}),
 					);
@@ -50,6 +52,7 @@ export class SignalEventHandlerController implements OnCharacterAdd, OnCharacter
 								alternate,
 								character,
 								players: Players.GetPlayers().filter((player) => player !== Player),
+								timeout: 0.1,
 							},
 						}),
 					);

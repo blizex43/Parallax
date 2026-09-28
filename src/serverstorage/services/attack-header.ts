@@ -22,7 +22,7 @@ import type { GUIDService } from "./guid";
 import { Meta } from "shared/meta";
 import { PostWindowData } from "shared/constants";
 import { CombatState } from "shared/enums/config-enum";
-import type { WebsocketManagementService } from "./websocket-manager";
+import type { JournalService } from "./journal";
 @Service({ loadOrder: 5000 })
 export class AttackHeaderService {
 	private readonly runningAttacks: Map<CharacterModel, Record<AttackLiterals, Promise<void>>> = new Map();
@@ -31,8 +31,8 @@ export class AttackHeaderService {
 		private readonly scaler: ScalingService,
 		private readonly database: DataService,
 		private readonly guid: GUIDService,
-		private readonly wsm: WebsocketManagementService,
-	) {}
+		private readonly journal: JournalService,
+	) { }
 
 	@LinkSerializedRemote(Events.game.attack, Serializers.attack)
 	public async onAttackRecieved(player: Player, packet: AttackPacket): Promise<void> {
@@ -45,7 +45,7 @@ export class AttackHeaderService {
 	}
 
 	public getRunningMeta(character: CharacterModel): CharacterAttackingHeaderData {
-		const attacking = this.wsm.getStateValue<boolean>(character, CombatState.Attacking) ?? false;
+		const attacking = this.journal.fetchStateValue<boolean>(character, CombatState.Attacking) ?? false;
 		return {
 			attacking,
 			postData: this.postData.get(character),

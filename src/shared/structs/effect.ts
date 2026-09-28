@@ -9,6 +9,7 @@ export type EffectEmissionType = "Emit" | "Enable" | "All";
 export interface PacketSafeEffectOptions {
 	players: Player[];
 	character: CharacterModel;
+	timeout?: number;
 	duration?: number;
 	radius?: number;
 	alternate?: boolean;
@@ -23,6 +24,13 @@ export interface PacketSafeEffectOptions {
 		direction?: Vector3;
 		timeout?: number;
 	};
+}
+export interface EffectInfo {
+	lastUsed: number;
+}
+export interface VFXMetadata {
+	lastEffectUsed: Maybe<EffectName>;
+	effectData: Map<EffectName, EffectInfo>;
 }
 
 export interface StandardEffect extends BaseEffect {

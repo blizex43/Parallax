@@ -7,7 +7,7 @@ import type { HitData } from "shared/structs/attack";
 import type { DamageTree } from "shared/structs/damage";
 import { getHeightDifferenceFromCharacters } from "shared/utility/basepart";
 import type { AnimationReplicatorService } from "./animation-replicator";
-import type { WebsocketManagementService } from "./websocket-manager";
+import type { JournalService } from "./journal";
 import type { VFXService } from "./effect";
 import type { GUIDService } from "./guid";
 import type { DamageCalculateService } from "./damage-calculate";
@@ -30,7 +30,7 @@ export class DamageSendService {
 		private readonly teleport: TeleportService,
 		private readonly ragdoll: RagdollService,
 		private readonly header: AttackHeaderService,
-		private readonly ws: WebsocketManagementService,
+		private readonly journal: JournalService,
 		private readonly block: BlockService,
 		private readonly effect: VFXService,
 		private readonly clash: ClashService,
@@ -49,18 +49,17 @@ export class DamageSendService {
 
 	public send_ailment(context: HitData, tree: DamageTree) {
 		if ((tree.blocked && !tree.blockBroken) || tree.iframed) return;
-		const manipulator = this.ws;
+		const util = this.journal.fetchUtil(context.attacked.character);
 		const character = context.attacked.character;
 		for (const ailment of tree.ailments)
 			switch (ailment.ailment) {
 				case "Iframe":
-					manipulator.setStateFor(character, VitalityState.Iframes, true, ailment.duration, false, true);
+					util?.writeFor(VitalityState.Iframes, true, ailment.duration, false, true);
 					break;
 			}
 
 		if (tree.blockBroken) {
-			manipulator.setStateFor(
-				character,
+			util?.writeFor(
 				CombatState.BlockBroken,
 				true,
 				context.properties.breaker?.duration ?? 1.5,
@@ -119,12 +118,17 @@ export class DamageSendService {
 
 	public send_combat_tag(context: HitData, tree: DamageTree) {
 		if ((tree.blocked && !tree.blockBroken) || tree.iframed) return;
-		this.ws.addValueToTableState(
+		const duration = this.calculate.calculate_combat_tag(context);
+		this.journal.writeStateValueRecordFor(
 			context.attacked.character,
 			CombatState.CombatTagAccumulator,
 			this.guid.get(context.attacker.character),
-			this.calculate.calculate_combat_tag(context),
-			false,
+			{
+				name: this.guid.get(context.attacker.character),
+				start: os.clock(),
+				end: os.clock() + duration,
+			},
+			duration,
 		);
 	}
 	public send_ragdoll(context: HitData, tree: DamageTree) {
@@ -141,8 +145,7 @@ export class DamageSendService {
 
 	public send_stun(context: HitData, tree: DamageTree): void {
 		if ((tree.blocked && !tree.blockBroken) || tree.iframed || tree.clashed) return;
-		return this.ws.setStateFor(
-			context.attacked.character,
+		this.journal.fetchUtil(context.attacked.character)?.writeFor(
 			context.properties.stun.type === "Normal" ? CombatState.Stunned : CombatState.FullStunned,
 			true,
 			tree.stun,

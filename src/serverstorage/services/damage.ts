@@ -7,7 +7,7 @@ import type { GUIDService } from "./guid";
 import { Players } from "@rbxts/services";
 import type { DamageTree } from "shared/structs/damage";
 import { CombatState, MiscState, VitalityState } from "shared/enums/config-enum";
-import type { WebsocketManagementService } from "./websocket-manager";
+import type { JournalService } from "./journal";
 import type { DamageCalculateService } from "./damage-calculate";
 import type { DamageSendService } from "./damage-send";
 import type { DamageBoolService } from "./damage-bool";
@@ -21,9 +21,9 @@ export class DamageService {
 		private readonly sender: DamageSendService,
 		private readonly bool: DamageBoolService,
 		private readonly notify: DamageNotifyService,
-		private readonly wsm: WebsocketManagementService,
+		private readonly journal: JournalService,
 		private readonly calculate: DamageCalculateService,
-	) {}
+	) { }
 	@OnSignalSubscribed(DamageRecieved)
 	public async query(context: HitData): Promise<void> {
 		//// Prerequisites
@@ -39,7 +39,7 @@ export class DamageService {
 			ailments: this.calculate.calculate_ailments(context),
 			blocked: this.bool.bool_block(context),
 			clashed: this.bool.bool_clash(context),
-			iframed: this.wsm.getStateValue(context.attacked.character, VitalityState.Iframes),
+			iframed: this.journal.fetchStateValue(context.attacked.character, VitalityState.Iframes),
 		};
 		//// GET, SEND & CALC
 		if (tree.blocked) tree.blockBroken = this.bool.bool_blockBreak(context);
@@ -65,13 +65,13 @@ export class DamageService {
 	}
 
 	public determine(context: HitData): boolean {
-		const attackerManager = this.wsm.getManager(context.attacker.character);
-		if (!attackerManager) return false;
+		const attackerUtil = this.journal.fetchUtil(context.attacker.character);
+		if (!attackerUtil) return false;
 		if (
-			this.wsm.getStateValue(context.attacked.character, CombatState.Knocked) ||
-			(this.wsm.getStateValue(context.attacked.character, CombatState.Ragdoll) &&
+			this.journal.fetchStateValue(context.attacked.character, CombatState.Knocked) ||
+			(this.journal.fetchStateValue(context.attacked.character, CombatState.Ragdoll) &&
 				!this.bool.bool_ailment(this.calculate.calculate_ailments(context), "RagdollQuery")) ||
-			!attackerManager.isAllValue(
+			!attackerUtil.isPathValuesEqualTo(
 				[
 					CombatState.Stunned,
 					CombatState.FullStunned,

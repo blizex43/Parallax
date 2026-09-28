@@ -2,12 +2,12 @@ import type { AtomType, CooldownAtom, DependerAtom } from "shared/structs/atom";
 import { BlackboardNames, CharmChangedType, StateType } from "shared/structs/websocket";
 import { SuperJanitor } from "shared/classes/super-janitor";
 import { Controller } from "@flamework/core";
-import type { WebsocketController } from "./state";
+import type { WebsocketController } from "./websocket";
 import { isCooldownAtom, isDependerAtom, isObjectWithAtLeast } from "shared/utility/t-isA";
 import Object from "@rbxts/object-utils";
 import { now } from "shared/utility/time";
-@Controller()
-export class WebsocketManagementController {
+// @Controller()
+export class WebsocketManagementControllerDeprecated {
 	public constructor(private readonly ws: WebsocketController) { }
 
 	public setState(index: BlackboardNames, value: AtomType): boolean {
@@ -67,7 +67,7 @@ export class WebsocketManagementController {
 		if (cancelLast) SuperJanitor.del(indexName);
 		if (duration) SuperJanitor.set(indexName, () => this.delValueFromTableState(index, name, cancelLast), duration);
 		if (isDependerAtom(charm.status) || (isCooldownAtom(charm.status) && duration))
-			this.updateTableState(charm, name, {
+			this.updateTableState(<never>charm, name, {
 				start: os.clock(),
 				end: duration ? os.clock() + duration : undefined,
 				halted: isCooldownAtom(charm.status) ? false : undefined,
@@ -79,7 +79,7 @@ export class WebsocketManagementController {
 		if (!isDependerAtom(charm.status) && !isCooldownAtom(charm.status)) return;
 		const indexName = `${index}${name}`;
 		if (cancelLast) SuperJanitor.del(indexName);
-		this.updateTableState(charm, name);
+		this.updateTableState(<never>charm, name);
 	}
 
 	public isStatesEqualTo(indexes: BlackboardNames[], value: AtomType): boolean {
@@ -98,8 +98,8 @@ export class WebsocketManagementController {
 	private updateTableState(charm: StateType<DependerAtom | CooldownAtom>, index: string, value?: object): void {
 		charm.__atom((dependers) => {
 			const clone = Object.deepCopy(<CooldownAtom>dependers);
-			if (!value) clone.delete(index);
-			else clone.set(index, <never>value);
+			if (!value) delete clone[index];
+			else clone[index] = <never>value;
 			return clone;
 		});
 	}

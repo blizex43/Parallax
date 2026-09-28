@@ -1,40 +1,45 @@
-import { CharmHandler } from "shared/classes/charm-handler";
 import { Cooldown, OnSignalSubscribed } from "shared/decorators";
 import { CombatState, StateEvents } from "shared/enums/config-enum";
-import type { WebsocketController } from "./state";
 import type { OnCharacterAdd } from "shared/hooks";
 import type { CharacterController } from "./character";
 import { EquipDebounce } from "shared/enums/keyboard-enum";
 import { Controller, type OnStart } from "@flamework/core";
-import type { StateType } from "shared/structs/websocket";
-import type { WebsocketManagementController } from "./websocket-manager";
+import { JournalHandler } from "shared/classes/journal-handler";
+import type { JournalController } from "./journal";
 
 @Controller()
-export class KeyboardController extends CharmHandler<boolean> implements OnStart, OnCharacterAdd {
-	public charm!: StateType<boolean>;
+export class KeyboardController extends JournalHandler implements OnStart, OnCharacterAdd {
+	// public charm!: StateType<boolean>;
 	constructor(
 		private readonly character: CharacterController,
-		protected readonly ws: WebsocketController,
-		private readonly wsm: WebsocketManagementController,
+		readonly journal: JournalController,
 	) {
-		super((...args) => ws.get(...args), CombatState.CombatEquip);
+		super(journal.util);
 	}
 	onStart(): void {
-		this.giveCharmMethods({
-			blacklist: {
-				call: (...args) => this.ws.getBoardTrayTypeCallback(...args),
-				names: [CombatState.Block, CombatState.Ragdoll, CombatState.Exhausted],
+		this.runMethods([
+			{
+				handleType: "blacklist",
+				paths: [CombatState.Block, CombatState.Ragdoll, CombatState.Exhausted],
+				behavior: "Run If Single True",
 			},
-			restartCharmOnSignal: {
-				charm: <StateType>this.charm,
+			{
+				handleType: "revert",
+				paths: [CombatState.CombatEquip],
+				behavior: "Run If Single True",
+				revertValue: false,
 			},
-		});
+		]);
 	}
 	@OnSignalSubscribed(StateEvents[CombatState.CombatEquip])
 	@Cooldown(EquipDebounce)
 	public equip() {
 		if (!this.canUse()) return;
-		this.wsm.setState(CombatState.CombatEquip, !this.charm.status);
+		this.journalUtil.write(
+			CombatState.CombatEquip,
+			!this.journalUtil.read<boolean>(CombatState.CombatEquip),
+			"KeyboardController",
+		);
 	}
 
 	public canUse(): boolean {
@@ -43,6 +48,6 @@ export class KeyboardController extends CharmHandler<boolean> implements OnStart
 
 	public async onCharacterAdd(): Promise<void> {
 		const humanoid = this.character.getHumanoid() ?? (await this.character.mustGetHumanoid());
-		humanoid.Died.Once(() => this.__signal.Fire());
+		humanoid.Died.Once(() => this.revert());
 	}
 }

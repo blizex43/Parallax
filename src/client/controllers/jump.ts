@@ -5,14 +5,12 @@ import { atom } from "@rbxts/charm";
 import Spring from "@rbxts/spring";
 import { Janitor } from "@rbxts/janitor";
 import { BaseJumpRefresh } from "shared/enums/jump-enum";
-import { CharmHandler } from "shared/classes/charm-handler";
-import type { WebsocketController } from "./state";
 import { CombatState, MiscState, MovementState } from "shared/enums/config-enum";
-import { StateType } from "shared/structs/websocket";
-import { WebsocketManagementController } from "./websocket-manager";
+import { JournalController } from "./journal";
+import { JournalHandler } from "shared/classes/journal-handler";
 @Controller()
-export class JumpController extends CharmHandler implements OnStart, LogStart, OnCharacterAdd {
-	public charm!: StateType;
+export class JumpController extends JournalHandler implements OnStart, LogStart, OnCharacterAdd {
+	// public charm!: StateType;
 	private readonly janitor: Janitor = new Janitor();
 	private readonly resetJanitor: Janitor = new Janitor();
 	private jumpSpring!: Spring<number>;
@@ -20,16 +18,15 @@ export class JumpController extends CharmHandler implements OnStart, LogStart, O
 	private baseJumpPower!: Charm.Atom<number>;
 	constructor(
 		private readonly character: CharacterController,
-		private readonly ws: WebsocketController,
-		private readonly wsm: WebsocketManagementController,
+		readonly journal: JournalController,
 	) {
-		super((...args) => ws.get(...args), MovementState.Jump);
+		super(journal.util);
 	}
 	onStart(): void {
-		this.giveCharmMethods({
-			blacklist: {
-				call: (...args) => this.ws.getBoardTrayTypeCallback(...args),
-				names: [
+		this.runMethods([
+			{
+				handleType: "blacklist",
+				paths: [
 					CombatState.Stunned,
 					CombatState.FullStunned,
 					CombatState.BlockBroken,
@@ -44,10 +41,12 @@ export class JumpController extends CharmHandler implements OnStart, LogStart, O
 					CombatState.CombatEquip,
 					MiscState.Cutscene,
 				],
+				behavior: "Run If Single True",
 			},
-			override: {
-				call: (...args) => this.ws.getGroupSubscribedSignal(...args),
-				names: [
+
+			{
+				handleType: "override",
+				paths: [
 					CombatState.Stunned,
 					CombatState.FullStunned,
 					CombatState.BlockBroken,
@@ -62,11 +61,12 @@ export class JumpController extends CharmHandler implements OnStart, LogStart, O
 					CombatState.CombatEquip,
 					MiscState.Cutscene,
 				],
-				type: true,
+				behavior: "Run If Single True",
 			},
-			overrideEnd: {
-				call: (...args) => this.ws.getGroupSubscribedSignal(...args),
-				names: [
+
+			{
+				handleType: "override",
+				paths: [
 					CombatState.Stunned,
 					CombatState.FullStunned,
 					CombatState.BlockBroken,
@@ -81,20 +81,19 @@ export class JumpController extends CharmHandler implements OnStart, LogStart, O
 					CombatState.CombatEquip,
 					MiscState.Cutscene,
 				],
-				type: false,
-				runType: "All",
+				behavior: "Run If All False",
 			},
-		});
+		]);
 	}
 
 	protected onOverride(on: boolean): void {
 		const humanoid = this.character.getHumanoid();
 		if (!humanoid) return;
 		if (on) {
-			this.wsm.setState(MovementState.Jump, false);
+			this.journalUtil.write(MovementState.Jump, false);
 			this.disableJump(humanoid);
 		} else {
-			this.wsm.setState(MovementState.Jump, true);
+			this.journalUtil.write(MovementState.Jump, true);
 			this.enableJump(humanoid);
 		}
 	}
@@ -151,7 +150,7 @@ export class JumpController extends CharmHandler implements OnStart, LogStart, O
 	}
 
 	public async enableJump(humanoid: Maybe<Humanoid>): Promise<void> {
-		if (!this.charm.status) return;
+		if (!this.journalUtil.read(MovementState.Jump)) return;
 		humanoid = humanoid ? humanoid : await this.character.getHumanoid();
 		if (!humanoid) return;
 		if (this.jumpDisablePromise && this.jumpDisablePromise.getStatus() !== "Resolved")
