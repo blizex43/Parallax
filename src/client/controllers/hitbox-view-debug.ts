@@ -1,34 +1,36 @@
 import { Controller, OnStart } from "@flamework/core";
-import { WebsocketController } from "./state";
-import { CharmHandler } from "shared/classes/charm-handler";
 import { MiscState } from "shared/enums/config-enum";
 import { Workspace as World } from "@rbxts/services";
 import { isBoxHandleAdornment } from "shared/utility/t-isA";
 import { Janitor } from "@rbxts/janitor";
-import { StateType } from "shared/structs/websocket";
 import { noop } from "shared/utility/functions";
+import { JournalHandler } from "shared/classes/journal-handler";
+import type { JournalController } from "./journal";
 @Controller()
-export class HitboxViewDebugController extends CharmHandler implements OnStart {
-	public charm!: StateType;
+export class HitboxViewDebugController extends JournalHandler implements OnStart {
+	// public charm!: StateType;
 	private readonly terrain: Terrain = World.Terrain;
 	private readonly adornments: BoxHandleAdornment[] = [];
 	private readonly adornmentJanitor: Janitor = new Janitor();
-	public constructor(private readonly ws: WebsocketController) {
-		super((...args) => ws.get(...args), MiscState.Debug);
+	public constructor(private readonly journal: JournalController) {
+		super(journal.util);
 	}
 	public onStart(): void {
 		for (const adornment of this.terrain.GetChildren()) this.iterateAdornments(adornment);
 		this.terrain.ChildAdded.Connect((adornment) =>
 			noop(
 				isBoxHandleAdornment(adornment) &&
-				(this.iterateAdornments(adornment), this.charm.status && this.addAdornmentToJanitor(adornment)),
+					(this.iterateAdornments(adornment),
+					this.journalUtil.read<boolean>(MiscState.Debug) && this.addAdornmentToJanitor(adornment)),
 			),
 		);
 		this.onChanged();
 	}
 
 	private onChanged() {
-		this.charm.changed.Connect((on) => (on ? this.wakeAdornments() : this.sleepAdornments()));
+		this.journalUtil
+			.getPathChanged<boolean>(MiscState.Debug)
+			.Connect((on) => (on.newValue ? this.wakeAdornments() : this.sleepAdornments()));
 	}
 
 	private handleAdornment(adornment: BoxHandleAdornment): void {

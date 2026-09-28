@@ -56,6 +56,17 @@ export const enum CombatState {
 	StopHealthRegen = "NoHealthRegen",
 }
 
+export const enum Title {
+	Player = "player",
+	UI = "ui",
+	Camera = "camera",
+	AI = "ai",
+	Movement = "movement",
+	Combat = "combat",
+	Health = "health",
+	Other = "other",
+}
+
 export const enum AIBlackboardKey {
 	// Combat behavior
 	Aggression = "Aggression",

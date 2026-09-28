@@ -2,7 +2,7 @@ import { Dependency } from "@flamework/core";
 import type { FSM } from "@rbxts/state-management";
 import type { AttackHeaderService } from "serverstorage/services/attack-header";
 import type { BlockService } from "serverstorage/services/block";
-import type { WebsocketManagementService } from "serverstorage/services/websocket-manager";
+import type { JournalService } from "serverstorage/services/journal";
 import { AIBlackboardKey } from "shared/enums/config-enum";
 import type { BlackboardStateType, StateType } from "shared/structs/websocket";
 
@@ -10,7 +10,7 @@ import type { BlackboardStateType, StateType } from "shared/structs/websocket";
 export default abstract class AIStateBase implements FSM.IFSMState {
 	constructor(
 		protected readonly character: CharacterModel,
-		protected readonly ws: WebsocketManagementService = Dependency<WebsocketManagementService>(),
+		protected readonly journal: JournalService = Dependency<JournalService>(),
 		protected readonly block: BlockService = Dependency<BlockService>(),
 		protected readonly header = Dependency<AttackHeaderService>(),
 	) { }

@@ -8,38 +8,35 @@ import type { PushDirection } from "shared/structs/push";
 import { Cooldown, OnSignalSubscribed } from "shared/decorators";
 import type { AnimationController } from "./animation";
 import { CombatState, MiscState, MovementState, StateEvents } from "shared/enums/config-enum";
-import { CharmHandler } from "shared/classes/charm-handler";
-import type { WebsocketController } from "./state";
 import type { PushPacket } from "shared/structs/packets";
 import { Mover } from "shared/components/mover";
 import type { MoverNames } from "shared/structs/mover";
 import { DashProperties, DefaultDashProperties, HardDashDebounce } from "shared/enums/push-enum";
-import type { StateType } from "shared/structs/websocket";
 import type { ScalingController } from "./scaling";
-import type { WebsocketManagementController } from "./websocket-manager";
 import type { JumpController } from "./jump";
+import { JournalHandler } from "shared/classes/journal-handler";
+import { JournalController } from "./journal";
 
 @Controller()
-export class PushController extends CharmHandler<boolean> implements OnCharacterLoaded, OnStart, OnCharacterRemove {
-	public charm!: StateType<boolean>;
+export class PushController extends JournalHandler implements OnCharacterLoaded, OnStart, OnCharacterRemove {
+	// public charm!: StateType<boolean>;
 	private movers = <Record<MoverNames, Mover>>{};
 	protected onOverride = undefined;
 	constructor(
 		private readonly character: CharacterController,
 		private readonly animation: AnimationController,
-		private readonly ws: WebsocketController,
-		private readonly wsm: WebsocketManagementController,
 		private readonly scaling: ScalingController,
 		private readonly jump: JumpController,
+		private readonly journal: JournalController,
 	) {
-		super((...args) => ws.get(...args), MovementState.Dash);
+		super(journal.util);
 	}
 
-	onStart(): void {
-		this.giveCharmMethods({
-			blacklist: {
-				call: (...args) => this.ws.getBoardTrayTypeCallback(...args),
-				names: [
+	public onStart(): void {
+		this.runMethods([
+			{
+				handleType: "blacklist",
+				paths: [
 					MovementState.Dash,
 					CombatState.Stunned,
 					CombatState.FullStunned,
@@ -55,8 +52,9 @@ export class PushController extends CharmHandler<boolean> implements OnCharacter
 					MovementState.NoMove,
 					MiscState.Cutscene,
 				],
+				behavior: "Run If Single True",
 			},
-		});
+		]);
 	}
 
 	public onCharacterAdd(character: CharacterModel): void {
@@ -104,22 +102,22 @@ export class PushController extends CharmHandler<boolean> implements OnCharacter
 
 	private canDash(direction: PushDirection): boolean {
 		const horizontal = direction === "Left" || direction === "Right";
-		if (horizontal) return !this.wsm.getStateValue(MovementState.DashHorizontal);
-		return !this.wsm.getStateValue(MovementState.DashVertical);
+		if (horizontal) return !this.journalUtil.read<boolean>(MovementState.DashHorizontal);
+		return !this.journalUtil.read<boolean>(MovementState.DashVertical);
 	}
 
 	private setDashCD(direction: PushDirection, cooldown: number): void {
 		switch (direction) {
 			case "Right":
 			case "Left":
-				this.wsm.setStateFor(MovementState.DashHorizontal, true, cooldown, false, true);
+				this.journalUtil.writeFor(MovementState.DashHorizontal, true, cooldown, false, true);
 				break;
 			case "Back":
 			case "Front":
-				this.wsm.setStateFor(MovementState.DashVertical, true, cooldown, false, true);
+				this.journalUtil.writeFor(MovementState.DashVertical, true, cooldown, false, true);
 				break;
 		}
-		this.wsm.setStateFor(MovementState.Dash, true, cooldown / 2, false, true);
+		this.journalUtil.writeFor(MovementState.Dash, true, cooldown / 2, false, true);
 	}
 
 	private getDashCooldown(): number {

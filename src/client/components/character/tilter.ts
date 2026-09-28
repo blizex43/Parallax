@@ -47,21 +47,30 @@ export class Tilter
 		this.onDestroy();
 	}
 
-	private update(dt: number, enabled: boolean = true) {
+	private update(dt: number, enabled = true) {
 		const root = this.instance.FindFirstChild("HumanoidRootPart");
 		const humanoid = this.instance.FindFirstChild("Humanoid");
+
 		if (!root || !humanoid) return;
-		const moveDirection = root.CFrame.VectorToObjectSpace(humanoid.MoveDirection);
-		const rootJoint = root.RootJoint;
+		const look = root.CFrame.LookVector;
+		const yaw = math.atan2(-look.X, -look.Z);
+		const yawCFrame = CFrame.Angles(0, yaw, 0);
+
+		const moveDirection = yawCFrame.VectorToObjectSpace(humanoid.MoveDirection);
+
 		const blend = this.updateShiftlockBlend(enabled ? 1 : 0, dt);
-		const alpha = math.clamp(0.2 ** (1 / math.max(dt * (60 * this.attributes.speed), 0.01)), 0, 1);
-		const angle = CFrame.Angles(
+
+		const alpha = 1 - math.exp(-this.attributes.speed * dt);
+
+		const targetAngle = CFrame.Angles(
 			math.rad(-moveDirection.Z) * MAX_TILT_ANGLE * blend,
 			math.rad(-moveDirection.X) * MAX_TILT_ANGLE * blend,
 			0,
 		);
-		this.position = this.position.Lerp(angle, alpha);
-		rootJoint.C0 = this.motorCFrame.mul(this.position);
+
+		this.position = this.position.Lerp(targetAngle, alpha);
+
+		root.RootJoint.C0 = this.motorCFrame.mul(this.position);
 	}
 
 	private updateShiftlockBlend(target: number, dt: number): number {

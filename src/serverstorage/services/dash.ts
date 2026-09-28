@@ -1,7 +1,7 @@
 import { Service } from "@flamework/core";
 import type { OnCharacterRemove } from "shared/hooks";
 import { CombatState, MiscState, MovementState } from "shared/enums/config-enum";
-import type { WebsocketManagementService } from "./websocket-manager";
+import type { JournalService } from "./journal";
 import type { StaminaService } from "./stamina";
 import type { ScalingService } from "./scaling";
 import type { DataService } from "./third-party/data";
@@ -13,7 +13,7 @@ import { DashProperties } from "shared/enums/push-enum";
 @Service()
 export class DashService implements OnCharacterRemove {
 	public constructor(
-		private readonly ws: WebsocketManagementService,
+		private readonly journal: JournalService,
 		private readonly stamina: StaminaService,
 		private readonly scaling: ScalingService,
 		private readonly guid: GUIDService,
@@ -32,9 +32,9 @@ export class DashService implements OnCharacterRemove {
 	}
 
 	public canDash(character: CharacterModel): boolean {
-		const manager = this.ws.getManager(character);
-		if (!manager) return false;
-		return manager.isAllValue(
+		const util = this.journal.fetchUtil(character);
+		if (!util) return false;
+		return util.isPathValuesEqualTo(
 			[
 				CombatState.Stunned,
 				CombatState.FullStunned,
@@ -59,6 +59,6 @@ export class DashService implements OnCharacterRemove {
 	}
 
 	public onCharacterRemove(character: CharacterModel): void {
-		return void this.ws.setState(character, MovementState.Dash, false);
+		return void this.journal.writeStateValue(character, MovementState.Dash, false);
 	}
 }

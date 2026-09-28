@@ -1,8 +1,7 @@
 import { Controller, OnStart } from "@flamework/core";
 import { OnSignalSubscribed } from "shared/decorators";
-import { CombatState, MiscState, StateEvents } from "shared/enums/config-enum";
-import { CharmHandler } from "shared/classes/charm-handler";
-import type { WebsocketController } from "./state";
+import { CombatState, MiscState, MovementState, StateEvents } from "shared/enums/config-enum";
+import type { WebsocketController } from "./websocket";
 import type { CFrameController } from "./cframe";
 import type { LogStart } from "shared/hooks";
 import { Events } from "client/network";
@@ -10,29 +9,28 @@ import type { AttackPacket } from "shared/structs/packets";
 import { Serializers } from "shared/network";
 import { Meta } from "shared/meta";
 import type { KeyboardController } from "./keyboard";
-import type { StateType } from "shared/structs/websocket";
-import type { WebsocketManagementController } from "./websocket-manager";
+import { JournalHandler } from "shared/classes/journal-handler";
+import type { JournalController } from "./journal";
 @Controller()
-export class MeleeController extends CharmHandler<boolean> implements OnStart, LogStart {
-	public charm!: StateType<boolean>;
+export class MeleeController extends JournalHandler implements OnStart, LogStart {
+	// public charm!: StateType<boolean>;
 	constructor(
-		private readonly ws: WebsocketController,
 		private readonly cframe: CFrameController,
 		private readonly keyboard: KeyboardController,
-		private readonly wsm: WebsocketManagementController,
+		readonly journal: JournalController,
 	) {
-		super((...args) => ws.get(...args), CombatState.AttackExecutable);
+		super(journal.util);
 	}
 
 	protected onOverride(on: boolean): void {
-		this.wsm.setState(CombatState.AttackExecutable, !on);
+		this.journalUtil.write(CombatState.AttackExecutable, !on);
 	}
 
 	public onStart(): void {
-		this.giveCharmMethods({
-			blacklist: {
-				call: (...args) => this.ws.getBoardTrayTypeCallback(...args),
-				names: [
+		this.runMethods([
+			{
+				handleType: "blacklist",
+				paths: [
 					CombatState.Stunned,
 					CombatState.FullStunned,
 					CombatState.BlockBroken,
@@ -41,10 +39,11 @@ export class MeleeController extends CharmHandler<boolean> implements OnStart, L
 					CombatState.Exhausted,
 					MiscState.Cutscene,
 				],
+				behavior: "Run If Single True",
 			},
-			override: {
-				call: (...args) => this.ws.getGroupSubscribedSignal(...args),
-				names: [
+			{
+				handleType: "override",
+				paths: [
 					CombatState.Stunned,
 					CombatState.FullStunned,
 					CombatState.BlockBroken,
@@ -53,11 +52,11 @@ export class MeleeController extends CharmHandler<boolean> implements OnStart, L
 					CombatState.Exhausted,
 					MiscState.Cutscene,
 				],
-				type: true,
+				behavior: "Run If Single True",
 			},
-			overrideEnd: {
-				call: (...args) => this.ws.getGroupSubscribedSignal(...args),
-				names: [
+			{
+				handleType: "overrideEnd",
+				paths: [
 					CombatState.Stunned,
 					CombatState.FullStunned,
 					CombatState.BlockBroken,
@@ -66,10 +65,9 @@ export class MeleeController extends CharmHandler<boolean> implements OnStart, L
 					CombatState.Exhausted,
 					MiscState.Cutscene,
 				],
-				type: false,
-				runType: "All",
+				behavior: "Run If All False",
 			},
-		});
+		]);
 	}
 	@OnSignalSubscribed(StateEvents[CombatState.MouseOne])
 	public onLight(on: boolean) {
@@ -88,8 +86,12 @@ export class MeleeController extends CharmHandler<boolean> implements OnStart, L
 	}
 
 	private canUse(typeMelee: "Light" | "Heavy", on: boolean): boolean {
-		const baseBools = !this.isBlacklisted() && this.charm.status && this.keyboard.charm.status && on;
-		const typeBool = typeMelee === "Light" ? true : this.cframe.charm.status;
+		const baseBools =
+			!this.isBlacklisted() &&
+			this.journalUtil.read<boolean>(CombatState.AttackExecutable)! &&
+			this.journalUtil.read<boolean>(CombatState.CombatEquip)! &&
+			on;
+		const typeBool = typeMelee === "Light" ? true : this.journalUtil.read<boolean>(MovementState.Shiftlocked)!;
 		return baseBools && typeBool;
 	}
 }

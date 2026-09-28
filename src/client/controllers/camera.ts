@@ -16,11 +16,13 @@ import type { ControlPanelDropdownRenderer } from "shared/structs/control-panel"
 import { ControlPanelRenderable } from "./control-panel";
 import type { CameraComponent } from "client/base-components/camera";
 import { DynamicCamera } from "client/components/cameras/dynamic";
-import { OnCharmSubscribed, OnSignalSubscribed } from "shared/decorators";
-import { CameraChanged, FlameworkCharms } from "shared/constants";
+import { OnSignalSubscribed } from "shared/decorators";
+import { CameraChanged } from "shared/constants";
 import type { ScreenshakePropertiesType } from "shared/structs/screen-shake";
 import { baseFadeTime } from "shared/enums/animation-enum";
 import { CameraShakeInstance } from "@rbxts/camera-shaker";
+import { OnJournalEntrySubscribed } from "client/decorators";
+import { MovementState } from "shared/enums/config-enum";
 
 // add new camera components here
 export interface Cameras {
@@ -106,7 +108,7 @@ export class CameraController implements OnInit, OnRender, LogStart, ControlPane
 		for (const [otherCameraName] of pairs(this.cameras.getValue()))
 			this.get(otherCameraName).toggle(cameraName === otherCameraName);
 	}
-	@OnCharmSubscribed(FlameworkCharms.Shiftlocked)
+	@OnJournalEntrySubscribed(MovementState.Shiftlocked)
 	public onShiftlock(on: boolean) {
 		const camera = this.get();
 		if ("shift" in camera) (<Callback>camera["shift"])(camera, on);

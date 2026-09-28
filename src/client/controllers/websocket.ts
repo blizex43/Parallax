@@ -7,7 +7,7 @@ import { FlameworkCharms } from "shared/constants";
 import { SpawnTask } from "shared/decorators";
 import { LogStart } from "shared/hooks";
 import { WebsocketUtilities } from "shared/classes/websocket-utilities";
-@Controller()
+// @Controller()
 export class WebsocketController extends WebsocketUtilities implements OnStart, LogStart {
 	private readonly atoms = FlameworkCharms;
 	private readonly syncer = CharmSync.client({

@@ -12,7 +12,7 @@ import { CastEnums } from "shared/enums/cast-enum";
 import { CombatState } from "shared/enums/config-enum";
 import type { GUIDService } from "./guid";
 import type Signal from "@rbxts/signal";
-@Service()
+// @Service()
 export class WebsocketManagementService {
 	public constructor(
 		private readonly ws: WebsocketService,
@@ -93,7 +93,7 @@ export class WebsocketManagementService {
 				duration,
 			);
 		if (isDependerAtom(charm.status) || (isCooldownAtom(charm.status) && duration))
-			this.updateTableState(charm, name, {
+			this.updateTableState(<never>charm, name, {
 				start: os.clock(),
 				end: duration ? os.clock() + duration : undefined,
 				halted: isCooldownAtom(charm.status) ? false : undefined,
@@ -110,7 +110,7 @@ export class WebsocketManagementService {
 		if (!charm || (!isDependerAtom(charm.status) && !isCooldownAtom(charm.status))) return;
 		const indexName = `${plaracter.Name}${index}${name}`;
 		if (cancelLast) SuperJanitor.del(indexName);
-		this.updateTableState(charm, name);
+		this.updateTableState(<never>charm, name);
 	}
 
 	public getStateValue<T extends AtomType>(plaracter: Plaracter, index: BlackboardNames): Maybe<T> {
@@ -143,8 +143,8 @@ export class WebsocketManagementService {
 	private updateTableState(charm: StateType<DependerAtom | CooldownAtom>, index: string, value?: object): void {
 		charm.__atom((dependers) => {
 			const clone = Object.deepCopy(<CooldownAtom>dependers);
-			if (!value) clone.delete(index);
-			else clone.set(index, <never>value);
+			if (!value) delete clone[index];
+			else clone[index] = <never>value;
 			return clone;
 		});
 	}

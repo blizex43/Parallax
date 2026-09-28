@@ -1,7 +1,6 @@
 import { Controller, type OnRender, type OnStart } from "@flamework/core";
 import Signal from "@rbxts/signal";
 import type { FieldOfViewProperties } from "shared/structs/field-of-view";
-import type { WebsocketManagementController } from "./websocket-manager";
 import type { CameraController, Cameras } from "./camera";
 import { CameraState } from "shared/enums/config-enum";
 import { Serializers } from "shared/network";
@@ -10,6 +9,7 @@ import { Events } from "client/network";
 import { SuperJanitor } from "shared/classes/super-janitor";
 import { Sigmoid } from "shared/classes/sigmoid";
 import { noop } from "shared/utility/functions";
+import type { JournalController } from "./journal";
 
 @Controller()
 export class FieldOfViewController implements OnRender, OnStart {
@@ -20,13 +20,13 @@ export class FieldOfViewController implements OnRender, OnStart {
 	private readonly sigmoid: Sigmoid = new Sigmoid({ initTransition: 0 });
 	private readonly tweenableFunctions: Record<string, (dt: number) => void> = {};
 	public constructor(
-		public readonly ws: WebsocketManagementController,
+		public readonly journal: JournalController,
 		private readonly camera: CameraController,
 	) { }
 	public onStart(): void {
-		this.ws
-			.getChangedSignal<boolean>(CameraState.FieldOfViewManipulate)
-			.Connect((value) => this.onFieldOfViewChanged(value));
+		this.journal.util
+			.getPathChanged<boolean>(CameraState.FieldOfViewManipulate)
+			.Connect((value) => this.onFieldOfViewChanged(value.newValue));
 	}
 
 	public onRender(dt: number): void {
@@ -35,7 +35,14 @@ export class FieldOfViewController implements OnRender, OnStart {
 	@LinkSerializedRemote(Events.camera.fieldofview, Serializers.fieldofview)
 	public onPropertiesRecieved(this: Writable<FieldOfViewController>, properties: FieldOfViewProperties): void {
 		this.lastFieldOfViewProperties = properties;
-		this.ws.setStateFor(CameraState.FieldOfViewManipulate, true, properties.duration, false, true);
+		this.journal.util.writeFor(
+			CameraState.FieldOfViewManipulate,
+			true,
+			properties.duration,
+			false,
+			true,
+			"FOVController",
+		);
 		this.fieldOfViewChanged.Fire(properties);
 	}
 

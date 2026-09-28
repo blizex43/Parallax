@@ -1,8 +1,6 @@
 import { Controller } from "@flamework/core";
 import { Workspace as World } from "@rbxts/services";
 import { ClientDebugger } from "client/classes/client-debugger";
-import { FlameworkCharms } from "shared/constants";
-import { OnCharmSubscribed } from "shared/decorators";
 import type { CharacterController } from "./character";
 import type { HighlightController } from "./highlight";
 import {
@@ -10,20 +8,21 @@ import {
 	EffectHighlightTransitionTime,
 	EffectHighlightTransparency,
 } from "shared/enums/effect-enum";
-import { WebsocketController } from "./state";
-import { MiscState } from "shared/enums/config-enum";
+import { CombatState, MiscState, VitalityState } from "shared/enums/config-enum";
+import { OnJournalEntrySubscribed } from "client/decorators";
+import { JournalController } from "./journal";
 @Controller()
 export class HighlightViewDebugController extends ClientDebugger {
 	readonly folder: Folder = World.WaitForChild("Hurtbox");
 	public constructor(
 		private readonly character: CharacterController,
 		private readonly highlight: HighlightController,
-		private readonly ws: WebsocketController,
+		private readonly journal: JournalController,
 	) {
 		super();
 	}
 
-	@OnCharmSubscribed(FlameworkCharms.Windup)
+	@OnJournalEntrySubscribed(CombatState.Windup)
 	public onDebug(on: boolean): void {
 		if (!this.isDebug()) return;
 		if (on)
@@ -35,7 +34,7 @@ export class HighlightViewDebugController extends ClientDebugger {
 		else this._end(1);
 	}
 
-	@OnCharmSubscribed(FlameworkCharms.Attacking)
+	@OnJournalEntrySubscribed(CombatState.Attacking)
 	public onDebug2(on: boolean): void {
 		if (!this.isDebug()) return;
 		if (on)
@@ -47,7 +46,7 @@ export class HighlightViewDebugController extends ClientDebugger {
 		else this._end(1);
 	}
 
-	@OnCharmSubscribed(FlameworkCharms.FullStunned)
+	@OnJournalEntrySubscribed(CombatState.FullStunned)
 	public onDebug3(on: boolean): void {
 		if (!this.isDebug()) return;
 		if (on)
@@ -59,7 +58,7 @@ export class HighlightViewDebugController extends ClientDebugger {
 		else this._end(1);
 	}
 
-	@OnCharmSubscribed(FlameworkCharms.Recovery)
+	@OnJournalEntrySubscribed(CombatState.Recovery)
 	public onDebug4(on: boolean): void {
 		if (!this.isDebug()) return;
 		if (on)
@@ -71,7 +70,7 @@ export class HighlightViewDebugController extends ClientDebugger {
 		else this._end(1, false);
 	}
 
-	@OnCharmSubscribed(FlameworkCharms.Stunned)
+	@OnJournalEntrySubscribed(CombatState.Stunned)
 	public onDebug5(on: boolean): void {
 		if (!this.isDebug()) return;
 		if (on)
@@ -83,7 +82,7 @@ export class HighlightViewDebugController extends ClientDebugger {
 		else this._end(1, false);
 	}
 
-	@OnCharmSubscribed(FlameworkCharms.Iframes)
+	@OnJournalEntrySubscribed(VitalityState.Iframes)
 	public onDebug6(on: boolean): void {
 		if (!this.isDebug()) return;
 		if (on)
@@ -118,7 +117,6 @@ export class HighlightViewDebugController extends ClientDebugger {
 	}
 
 	public isDebug(): boolean {
-		const mgr = this.ws.get(MiscState.Debug);
-		return <boolean>mgr.status;
+		return this.journal.util.read<boolean>(MiscState.Debug)!;
 	}
 }

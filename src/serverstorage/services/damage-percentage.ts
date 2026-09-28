@@ -1,37 +1,29 @@
 import { OnInit, Service } from "@flamework/core";
 import { Janitor } from "@rbxts/janitor";
-import type { OnCharmManagerCreated, OnCharmManagerDestroyed } from "serverstorage/hooks";
-import type { WebsocketUtilities } from "shared/classes/websocket-utilities";
-import type { WebsocketManagementService } from "./websocket-manager";
-import { DamagePercentageType, ManagerCleanType } from "shared/enums/damage-percentage-enum";
+import type { JournalCleanType, DamagePercentageType } from "shared/enums/damage-percentage-enum";
 import { DamageNotifyService } from "./damage-notify";
 import Log from "shared/log";
 import { isModel } from "shared/utility/t-isA";
 import Signal from "@rbxts/signal";
 import { CombatState } from "shared/enums/config-enum";
 import { Players } from "@rbxts/services";
+import type { JournalService } from "./journal";
 @Service()
-export class DamagePercentageService implements OnInit, OnCharmManagerCreated, OnCharmManagerDestroyed {
-	private readonly currentManagers: Map<Plaracter, ManagerCleanType> = new Map();
+export class DamagePercentageService implements OnInit {
+	private readonly currentJournals: Map<Plaracter, JournalCleanType> = new Map();
 	private readonly currentDamagePercentages: Map<CharacterModel, DamagePercentageType> = new Map();
 	private readonly percentageAdded: Signal<(character: CharacterModel) => void> = new Signal();
 	private readonly percentageRemoving: Signal<(character: CharacterModel) => void> = new Signal();
 	public constructor(
-		private readonly ws: WebsocketManagementService,
+		private readonly journal: JournalService,
 		private readonly notify: DamageNotifyService,
 	) { }
 
 	public onInit(): void {
 		this.listenToOnDamaged();
 		this.listenForCombatTag();
-	}
-	public onCharmManagerCreated(plaracter: Plaracter, manager: WebsocketUtilities): void {
-		const janitor = new Janitor();
-		this.saveManager(plaracter, manager, janitor);
-	}
-
-	public onCharmManagerDestroyed(plaracter: Plaracter): void {
-		this.removeManager(plaracter, true);
+		this.journal.journalCreated.Connect((plaracter) => this.saveJournal(plaracter));
+		this.journal.journalDestroying.Connect((plaracter) => this.removeJournal(plaracter));
 	}
 
 	private savePercentage(character: CharacterModel, obj: DamagePercentageType): DamagePercentageType {
@@ -40,16 +32,16 @@ export class DamagePercentageService implements OnInit, OnCharmManagerCreated, O
 		return obj;
 	}
 
-	private saveManager(plaracter: Plaracter, manager: WebsocketUtilities, janitor: Janitor): void {
-		return void this.currentManagers.set(plaracter, { manager, janitor });
+	private saveJournal(plaracter: Plaracter): void {
+		this.currentJournals.set(plaracter, { janitor: new Janitor() });
 	}
 
 	private getPercentage(character: CharacterModel): Maybe<DamagePercentageType> {
 		return this.currentDamagePercentages.get(character);
 	}
 
-	private getManager(plaracter: Plaracter): Maybe<ManagerCleanType> {
-		return this.currentManagers.get(plaracter);
+	private getJournal(plaracter: Plaracter): Maybe<JournalCleanType> {
+		return this.currentJournals.get(plaracter);
 	}
 
 	private removePercentage(character: CharacterModel): void {
@@ -57,14 +49,14 @@ export class DamagePercentageService implements OnInit, OnCharmManagerCreated, O
 		return void this.currentDamagePercentages.delete(character);
 	}
 
-	private removeManager(plaracter: Plaracter, clean: boolean = true): void {
+	private removeJournal(plaracter: Plaracter): void {
 		const character = <Maybe<CharacterModel>>(isModel(plaracter) ? plaracter : plaracter.Character);
-		const manager = this.getManager(plaracter);
-		if (manager) {
-			if (clean) manager.janitor.Destroy();
+		const journal = this.getJournal(plaracter);
+		if (journal) {
+			journal.janitor.Destroy();
 			if (character && this.getPercentage(character)) this.removePercentage(character);
 		}
-		return void this.currentManagers.delete(plaracter);
+		return void this.currentJournals.delete(plaracter);
 	}
 
 	private listenToOnDamaged(): void {
@@ -72,7 +64,7 @@ export class DamagePercentageService implements OnInit, OnCharmManagerCreated, O
 			// Log.info(`${ctx}, ${n}`, ["NOTIFIER"]);
 			const { attacker, attacked } = ctx;
 			const player = Players.GetPlayerFromCharacter(attacked.character);
-			if (!this.getManager(player ? player : attacked.character)) return;
+			if (!this.getJournal(player ? player : attacked.character)) return;
 			const parentPercentage =
 				this.getPercentage(attacked.character) ?? this.savePercentage(attacked.character, new Map());
 			const percentage = parentPercentage.get(attacker.character) ?? {
@@ -84,22 +76,21 @@ export class DamagePercentageService implements OnInit, OnCharmManagerCreated, O
 		});
 	}
 
-	private onCombatStatusChanged(character: CharacterModel, manager: ManagerCleanType, on: boolean) {
+	private onCombatStatusChanged(character: CharacterModel, journal: JournalCleanType, on: boolean) {
 		if (on) return;
 		print("Cleaning up!", on);
-		manager.janitor.Cleanup();
+		journal.janitor.Cleanup();
 		if (this.getPercentage(character)) this.removePercentage(character);
 	}
 
 	private listenForCombatTag(): void {
 		return void this.percentageAdded.Connect((character) => {
-			const manager = this.getManager(character);
-			if (!manager) return;
-			manager.janitor.Add(
-				(
-					this.ws.getCharm<boolean>(character, CombatState.CombatTag) ??
-					manager.manager.get(CombatState.CombatTag)
-				).changed.Connect((value) => this.onCombatStatusChanged(character, manager, value)),
+			const player = Players.GetPlayerFromCharacter(character);
+			const journal = this.getJournal(player ?? character);
+			const changed = this.journal.fetchStateChanged<boolean>(character, CombatState.CombatTag);
+			if (!journal || !changed) return;
+			journal.janitor.Add(
+				changed.Connect(({ newValue }) => this.onCombatStatusChanged(character, journal, newValue)),
 			);
 		});
 	}

@@ -1,78 +1,76 @@
-import { FlameworkCharms, WalkspeedChanged } from "shared/constants";
+import { WalkspeedChanged } from "shared/constants";
 import type { CharacterController } from "./character";
-import { DeferTask, OnCharmSubscribed, OnSignalSubscribed } from "shared/decorators";
+import { DeferTask, OnSignalSubscribed } from "shared/decorators";
 import { Controller, type OnStart } from "@flamework/core";
-import type { WebsocketController } from "./state";
 import { CombatState, MiscState, MovementState } from "shared/enums/config-enum";
-import type { StateType } from "shared/structs/websocket";
 import { Janitor } from "@rbxts/janitor";
 import { OnCharacterAnimationsRegistered } from "shared/hooks";
 import type { AnimationController } from "./animation";
 import { HumanoidBaseWalkspeed, HumanoidMoveThreshhold, HumanoidStates } from "shared/enums/humanoid-enum";
-import type { KeyboardController } from "./keyboard";
 import type { AnimationTrackNames } from "shared/structs/animation";
-import { CharmHandler } from "shared/classes/charm-handler";
 import { SuperJanitor } from "shared/classes/super-janitor";
 import { isMovingBackwards } from "shared/utility/basepart";
+import { JournalHandler } from "shared/classes/journal-handler";
+import type { JournalController } from "./journal";
+import { OnJournalEntrySubscribed } from "client/decorators";
 const { min } = math;
 @Controller()
-export class HumanoidController extends CharmHandler implements OnCharacterAnimationsRegistered, OnStart {
-	public charm!: StateType;
-	private shiftCharm: StateType<boolean>;
+export class HumanoidController extends JournalHandler implements OnCharacterAnimationsRegistered, OnStart {
+	// public charm!: StateType;
+	// private shiftCharm: StateType<boolean>;
 	private humanoidJanitor: Janitor = new Janitor();
-	private sprintCharm: StateType<boolean>;
+	// private sprintCharm: StateType<boolean>;
 	constructor(
 		private readonly character: CharacterController,
 		private readonly animation: AnimationController,
-		private readonly keyboard: KeyboardController,
-		readonly ws: WebsocketController,
+		readonly journal: JournalController,
 	) {
-		super((...args) => ws.get(...args), MovementState.Sprint);
-		this.shiftCharm = ws.get(MovementState.Shiftlocked);
-		this.sprintCharm = ws.get(MovementState.Sprint);
+		super(journal.util);
 	}
 	public onStart(): void {
-		this.giveCharmMethods({
-			blacklist: {
-				call: (...args) => this.ws.getBoardTrayTypeCallback(...args),
-				names: [MovementState.Sprint, CombatState.Ragdoll, CombatState.Knocked, CombatState.Exhausted],
+		this.runMethods([
+			{
+				handleType: "blacklist",
+				paths: [CombatState.Ragdoll, CombatState.Knocked, CombatState.Exhausted],
+				behavior: "Run If Single True",
 			},
-			override: {
-				call: (...args) => this.ws.getGroupSubscribedSignal(...args),
-				names: [
+			{
+				handleType: "override",
+				paths: [
 					MovementState.Sprint,
 					CombatState.Ragdoll,
 					CombatState.Knocked,
 					MovementState.NoMove,
 					CombatState.Exhausted,
 				],
-				type: true,
+				behavior: "Run If Single True",
 			},
-			whitelist: {
-				call: (...args) => this.ws.getBoardTrayTypeCallback(...args),
-				names: [MovementState.NoMove, CombatState.FullStunned, MiscState.Cutscene],
+			{
+				handleType: "whitelist",
+				paths: [MovementState.NoMove, CombatState.FullStunned, MiscState.Cutscene],
+				behavior: "Run If Single True",
 			},
-		});
-		this.keyboard.charm.changed.Connect(() => this.onSpeedChanged());
+		]);
+		this.journalUtil.getPathChanged(CombatState.CombatEquip).Connect(() => this.onSpeedChanged());
 		this.initStates();
 	}
 	protected onOverride(): void {
 		this.onSpeedChanged();
 	}
-	@OnCharmSubscribed(FlameworkCharms.CutsceneMode)
+	@OnJournalEntrySubscribed(MiscState.Cutscene)
 	public onCutsceneCharm(): void {
 		const humanoid = this.character.getHumanoid();
 		if (!humanoid) return;
 	}
-	@OnCharmSubscribed(FlameworkCharms.Shiftlocked)
+	@OnJournalEntrySubscribed(MovementState.Shiftlocked)
 	public onCharmShiftlock() {
 		const humanoid = this.character.getHumanoid();
-		if (!humanoid || this.sprintCharm.status) return;
+		if (!humanoid || this.journalUtil.read<boolean>(MovementState.Shiftlocked)) return;
 	}
-	@OnCharmSubscribed(FlameworkCharms.Sprint)
+	@OnJournalEntrySubscribed(MovementState.Sprint)
 	public onCharmSprint(on: boolean) {
 		const humanoid = this.character.getHumanoid();
-		if (!humanoid || (!on && !this.shiftCharm.status)) return;
+		if (!humanoid || (!on && !this.journalUtil.read<boolean>(MovementState.Shiftlocked))) return;
 	}
 
 	public setStateEnabled(state: Enum.HumanoidStateType, enable: boolean): void {
@@ -107,8 +105,8 @@ export class HumanoidController extends CharmHandler implements OnCharacterAnima
 		const root = this.character.getRoot();
 		if (!character || !humanoid || !root || this.isBlacklisted()) return;
 		const [idleName, walkName] = <[AnimationTrackNames, AnimationTrackNames]>[
-			this.keyboard.charm.status ? "style_idle" : "idle",
-			this.keyboard.charm.status ? "style_walk" : "walk",
+			this.journalUtil.read<boolean>(CombatState.CombatEquip) ? "style_idle" : "idle",
+			this.journalUtil.read<boolean>(CombatState.CombatEquip) ? "style_walk" : "walk",
 		];
 		const moving = humanoid.MoveDirection.Magnitude > HumanoidMoveThreshhold;
 		let speedMul = min(1.2, humanoid.WalkSpeed / HumanoidBaseWalkspeed);

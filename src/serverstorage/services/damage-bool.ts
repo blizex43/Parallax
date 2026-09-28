@@ -1,7 +1,7 @@
 import { Service } from "@flamework/core";
 import type { AilmentsLiterals, AilmentSpec, HitData } from "shared/structs/attack";
 import { distance, isBackTurned } from "shared/utility/vector";
-import type { WebsocketManagementService } from "./websocket-manager";
+import type { JournalService } from "./journal";
 import { CombatState } from "shared/enums/config-enum";
 import { backTurnedThreshhold } from "shared/enums/damage-enum";
 import { ClashProperties } from "shared/enums/clash-enum";
@@ -12,11 +12,11 @@ import type { ClashService } from "./clash";
 @Service()
 export class DamageBoolService {
 	constructor(
-		private readonly ws: WebsocketManagementService,
+		private readonly journal: JournalService,
 		private readonly header: AttackHeaderService,
 		private readonly block: BlockService,
 		private readonly clash: ClashService,
-	) {}
+	) { }
 	public bool_clash(context: HitData): boolean {
 		if (!context.properties.clash) return false;
 		const attackedHeaderData = this.header.getRunningMeta(context.attacked.character);
@@ -45,7 +45,7 @@ export class DamageBoolService {
 
 	public bool_block(context: HitData): boolean {
 		return (
-			(this.ws.getStateValue<boolean>(context.attacked.character, CombatState.Block) ?? false) &&
+			(this.journal.fetchStateValue<boolean>(context.attacked.character, CombatState.Block) ?? false) &&
 			this.block.canBlock(context.attacked.character) &&
 			!isBackTurned(
 				context.attacker.character.HumanoidRootPart,

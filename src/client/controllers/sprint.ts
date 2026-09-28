@@ -1,5 +1,4 @@
 import type { AnimationController } from "./animation";
-import type { WebsocketController } from "./state";
 import { CombatState, MiscState, MovementState, StateEvents } from "shared/enums/config-enum";
 import { OnSignalSubscribed } from "shared/decorators";
 import { Controller, OnStart } from "@flamework/core";
@@ -8,29 +7,28 @@ import type { CharacterController } from "./character";
 import { throttle } from "@rbxts/set-timeout";
 import { SprintDebounce } from "shared/enums/sprint-enum";
 import { $print } from "rbxts-transform-debug";
-import { CharmHandler } from "shared/classes/charm-handler";
-import type { StateType } from "shared/structs/websocket";
-import type { WebsocketManagementController } from "./websocket-manager";
 import { Events } from "client/network";
 import { Serializers } from "shared/network";
+import { JournalHandler } from "shared/classes/journal-handler";
+import type { JournalController } from "./journal";
 @Controller()
-export class SprintController extends CharmHandler<boolean> implements LogStart, OnStart, OnCharacterRemove {
-	public charm!: StateType<boolean>;
+export class SprintController extends JournalHandler implements LogStart, OnStart, OnCharacterRemove {
+	// public charm!: StateType<boolean>;
 	private readonly sprintThrottled = throttle(() => true, SprintDebounce, {});
 	constructor(
 		private readonly animationController: AnimationController,
 		private readonly character: CharacterController,
-		private readonly ws: WebsocketController,
-		private readonly wsm: WebsocketManagementController,
+		readonly journal: JournalController,
 	) {
-		super((...args) => ws.get(...args), MovementState.Sprint);
+		super(journal.util);
 	}
 
 	public onStart(): void {
-		this.giveCharmMethods({
-			blacklist: {
-				call: (...args) => this.ws.getBoardTrayTypeCallback(...args),
-				names: [
+		// Transfer
+		this.runMethods([
+			{
+				handleType: "blacklist",
+				paths: [
 					CombatState.Stunned,
 					CombatState.FullStunned,
 					CombatState.BlockBroken,
@@ -44,10 +42,11 @@ export class SprintController extends CharmHandler<boolean> implements LogStart,
 					MovementState.NoMove,
 					MiscState.Cutscene,
 				],
+				behavior: "Run If Single True",
 			},
-			override: {
-				call: (...args) => this.ws.getGroupSubscribedSignal(...args),
-				names: [
+			{
+				handleType: "override",
+				paths: [
 					CombatState.Stunned,
 					CombatState.FullStunned,
 					CombatState.BlockBroken,
@@ -62,12 +61,10 @@ export class SprintController extends CharmHandler<boolean> implements LogStart,
 					MovementState.NoMove,
 					MiscState.Cutscene,
 				],
-				type: true,
+				behavior: "Run If Single True",
 			},
-		});
+		]);
 	}
-
-	
 
 	public onCharacterRemove(): void {
 		this.onSprintEnd();
@@ -84,14 +81,14 @@ export class SprintController extends CharmHandler<boolean> implements LogStart,
 			$print("Sprint Throttled!", this.isBlacklisted());
 			return;
 		}
-		this.wsm.setState(MovementState.Sprint, true);
+		this.journalUtil.write(MovementState.Sprint, true);
 		this.animationController.playAnim(character, "sprint");
 		Events.game.sprint(Serializers.sprint.serialize({ on: true }));
 	}
 	public onSprintEnd() {
 		const character = this.character.get();
-		if (this.charm.status) this.sprintThrottled();
-		this.wsm.setState(MovementState.Sprint, false);
+		if (this.journalUtil.read<boolean>(MovementState.Sprint)) this.sprintThrottled();
+		this.journalUtil.write(MovementState.Sprint, false);
 		if (!character) return;
 		this.animationController.stopAnim(character, "sprint");
 		Events.game.sprint(Serializers.sprint.serialize({ on: false }));

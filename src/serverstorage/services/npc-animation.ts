@@ -7,7 +7,7 @@ import type { WebsocketService } from "./websocket";
 import type { AnimationTrackNames } from "shared/structs/animation";
 import { CombatState } from "shared/enums/config-enum";
 
-@Service()
+// @Service()
 export class NpcAnimationService implements OnNPCMade, OnNPCDestroyed, OnTick {
 	private readonly cache: Set<NPCType> = new Set();
 	constructor(

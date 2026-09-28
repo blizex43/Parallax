@@ -1,15 +1,14 @@
 import { Service } from "@flamework/core";
 import { OnCharacterRemove } from "shared/hooks";
-import type { StateType } from "shared/structs/websocket";
 import { CombatState, MiscState } from "shared/enums/config-enum";
 import { Players } from "@rbxts/services";
 import type { AnimationReplicatorService } from "./animation-replicator";
-import type { WebsocketManagementService } from "./websocket-manager";
+import type { JournalService } from "./journal";
 
 @Service()
 export class BlockService implements OnCharacterRemove {
 	public constructor(
-		private readonly ws: WebsocketManagementService,
+		private readonly journal: JournalService,
 		private readonly anim: AnimationReplicatorService,
 	) { }
 
@@ -20,17 +19,17 @@ export class BlockService implements OnCharacterRemove {
 		const result = !this.canBlock(character) ? false : block;
 		if (result && npc) {
 			this.anim.replicate(character, "block", true);
-			this.ws.setState(character, CombatState.Block, true);
+			this.journal.writeStateValue(character, CombatState.Block, true);
 		} else if (npc && alreadyBlocking) {
 			this.anim.replicate(character, "block", false);
-			this.ws.setState(character, CombatState.Block, false);
+			this.journal.writeStateValue(character, CombatState.Block, false);
 		}
 	}
 
 	public canBlock(character: CharacterModel): boolean {
-		const mgr = this.ws.getManager(character);
-		if (!mgr) return false;
-		return mgr.isAllValue(
+		const util = this.journal.fetchUtil(character);
+		if (!util) return false;
+		return util.isPathValuesEqualTo(
 			[
 				CombatState.Windup,
 				CombatState.Attacking,
@@ -49,14 +48,14 @@ export class BlockService implements OnCharacterRemove {
 	}
 
 	public getBlock(character: CharacterModel): Maybe<boolean> {
-		return this.ws.getStateValue<boolean>(character, CombatState.Block);
+		return this.journal.fetchStateValue<boolean>(character, CombatState.Block);
 	}
 
-	public getBlockBroken(character: CharacterModel): Maybe<StateType<boolean>> {
-		return this.ws.getCharm<boolean>(character, CombatState.BlockBroken);
+	public getBlockBroken(character: CharacterModel): Maybe<boolean> {
+		return this.journal.fetchStateValue<boolean>(character, CombatState.BlockBroken);
 	}
 
 	public onCharacterRemove(character: CharacterModel): void {
-		return void this.ws.setState(character, CombatState.Block, false);
+		return void this.journal.writeStateValue(character, CombatState.Block, false);
 	}
 }

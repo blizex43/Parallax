@@ -5,7 +5,7 @@ import { Workspace as World } from "@rbxts/services";
 
 import type { AnimationController } from "client/controllers/animation";
 import type { AudioController } from "client/controllers/audio";
-import type { WebsocketManagementController } from "client/controllers/websocket-manager";
+import type { JournalController } from "client/controllers/journal";
 import type { VFXController } from "client/controllers/effects";
 import type {
 	EffectContext,
@@ -51,7 +51,7 @@ export abstract class BasePartEffect extends BaseEffect implements StandardEffec
 
 	protected readonly services = {
 		animation: Dependency<AnimationController>(),
-		state: Dependency<WebsocketManagementController>(),
+		journal: Dependency<JournalController>(),
 		sound: Dependency<AudioController>(),
 		effect: Dependency<VFXController>(),
 	};

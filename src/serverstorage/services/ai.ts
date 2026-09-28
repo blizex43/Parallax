@@ -2,7 +2,7 @@ import { Service } from "@flamework/core";
 import { FSM } from "@rbxts/state-management";
 import { $nameof, $warn } from "rbxts-transform-debug";
 import { DefaultFSMCalls, PresetConfigs } from "serverstorage/enums/ai-enum";
-import { type AIData, type AIPresetName } from "shared/structs/ai";
+import type { AIData, AIPresetName } from "shared/structs/ai";
 import Object from "@rbxts/object-utils";
 import type { LogStart } from "shared/hooks";
 import type { WebsocketService } from "./websocket";
@@ -12,7 +12,7 @@ import type { BlackboardStateType } from "shared/structs/websocket";
 import type { OnNPCDestroyed } from "serverstorage/hooks";
 import type { NPCType } from "shared/structs/npc";
 import DummyState from "serverstorage/states/dummy-idle";
-@Service({ loadOrder: 2000 })
+// @Service({ loadOrder: 2000 })
 export class AiService extends TagHandler implements LogStart, OnNPCDestroyed {
 	protected tag: string = $nameof<AiService>();
 	constructor(
@@ -42,7 +42,7 @@ export class AiService extends TagHandler implements LogStart, OnNPCDestroyed {
 			blackboard: ws.blackboard,
 			aiType: presetName,
 			ws,
-			fsm: fsm,
+			fsm,
 		};
 		super.give(character);
 		this.handler.handle(character, data);

@@ -2,6 +2,7 @@ import type { BlackboardStateType } from "shared/structs/websocket";
 import { CombatState } from "shared/enums/config-enum";
 import AIStateBase from "./host";
 import { isNull } from "shared/utility/t-isA";
+import { now } from "shared/utility/time";
 
 // Defensive blocking state - continuous blocking
 export default class DummyBlockState extends AIStateBase {
@@ -16,8 +17,8 @@ export default class DummyBlockState extends AIStateBase {
 	Update(dt: number, bb: BlackboardStateType): void {
 		if (!this.init) return void (this.init = true);
 		super.Update(dt, bb);
-		const block = this.ws.getStateValue<boolean>(this.character, CombatState.Block);
-		const blockBroken = this.ws.getStateValue<boolean>(this.character, CombatState.BlockBroken);
+		const block = this.journal.fetchStateValue<boolean>(this.character, CombatState.Block);
+		const blockBroken = this.journal.fetchStateValue<boolean>(this.character, CombatState.BlockBroken);
 		if (isNull(block)) return;
 		if (block && blockBroken) {
 			this.onBlockBroken(bb);
@@ -27,7 +28,8 @@ export default class DummyBlockState extends AIStateBase {
 		if (
 			!blockBroken &&
 			!block &&
-			(this.ws.getLastModifiedFromNow(this.character, CombatState.Block, true) ?? 0) > this.blockDebounce
+			((now() - (this.journal.fetchUtil(this.character)?.getLastWritten(CombatState.Block) ?? now())) / 1000) >
+			this.blockDebounce
 		) {
 			this.startBlocking(bb);
 		}

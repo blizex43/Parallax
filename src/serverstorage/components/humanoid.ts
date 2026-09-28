@@ -9,13 +9,13 @@ import type { GUIDService } from "serverstorage/services/guid";
 import type { ScalingService } from "serverstorage/services/scaling";
 import type { PsuedoPlayerData } from "shared/data-models/player-data";
 import { SuperJanitor } from "shared/classes/super-janitor";
-import type { WebsocketManagementService } from "serverstorage/services/websocket-manager";
 import { CombatState, VitalityState } from "shared/enums/config-enum";
 import { isBetween, isNegative } from "shared/utility/numbers";
 import { Regen } from "shared/components/regen";
 import { RegenProperties } from "shared/enums/regen-enum";
 import type { StaminaService } from "serverstorage/services/stamina";
 import { now } from "shared/utility/time";
+import type { JournalService } from "serverstorage/services/journal";
 type Attributes = typeof HumanoidInstanceEnum;
 @Component({ tag: $nameof<Humanoid>(), defaults: HumanoidInstanceEnum })
 export class Humanoid extends InstanceExtendable<Attributes, HumanoidInstance> implements OnStart {
@@ -29,7 +29,7 @@ export class Humanoid extends InstanceExtendable<Attributes, HumanoidInstance> i
 		private readonly database: DataService,
 		private readonly scale: ScalingService,
 		private readonly guid: GUIDService,
-		private readonly ws: WebsocketManagementService,
+		private readonly journal: JournalService,
 		private readonly stamina: StaminaService,
 	) {
 		super();
@@ -54,16 +54,17 @@ export class Humanoid extends InstanceExtendable<Attributes, HumanoidInstance> i
 	public updateRegen(regenName: "Health" | "Stamina") {
 		const data = this.data();
 		const regen = this.scale.getRegen(data, regenName);
-		const combatTag = this.ws.getStateValue<boolean>(this.instance.Parent, CombatState.CombatTag);
+		const combatTag = this.journal.fetchStateValue<boolean>(this.instance.Parent, CombatState.CombatTag);
 		if (combatTag && regenName === "Health") this.regens[regenName].disableRegen();
 		else if (!combatTag && regenName === "Health") this.regens[regenName].enableRegen();
 		this.regens[regenName].giveValues({ regenAmount: regen });
 	}
 
 	public onDeath() {
-		const combatTag = this.ws.getCharm<boolean>(this.instance.Parent, CombatState.CombatTag)!;
+		const util = this.journal.fetchUtil(this.instance.Parent)!;
+		const combatTag = util.getPathChanged<boolean>(CombatState.CombatTag)!;
 		this.addToCleanup(
-			combatTag.changed.Connect(() => this.update()),
+			combatTag.Connect(() => this.update()),
 			this.instance.Died.Once(() => {
 				(<Writable<Humanoid>>this).dead = true;
 				this.onDestroy();
@@ -72,36 +73,32 @@ export class Humanoid extends InstanceExtendable<Attributes, HumanoidInstance> i
 			this.instance.HealthChanged.Connect((health) => {
 				this.regens.Health.set(health);
 				if (isBetween(health, 0, RegenProperties.RagdollHealth) && !this.dead)
-					this.ws.setStateFor(this.instance.Parent, CombatState.Knocked, true, 20, false, true);
+					util.writeFor(CombatState.Knocked, true, 20, false, true);
 			}),
 			() => {
 				for (const [, regen] of pairs(this.regens)) regen.release();
 			},
 			this.regens.Health.instance.GetPropertyChangedSignal("Value").Connect(() => {
 				this.instance.Health = this.regens.Health.get();
-				return this.ws.setState(this.instance.Parent, VitalityState.Health, this.instance.Health);
+				return util.write(VitalityState.Health, this.instance.Health);
 			}),
 			this.regens.Stamina.instance.GetPropertyChangedSignal("Value").Connect(() => {
 				const current = this.regens.Stamina.get();
-				if (
-					isNegative(current) &&
-					!this.ws.getStateValue(this.instance.Parent, CombatState.Knocked) &&
-					!this.ws.getStateValue(this.instance.Parent, CombatState.Exhausted)
-				) {
+				if (isNegative(current) && !util.read(CombatState.Knocked) && !util.read(CombatState.Exhausted)) {
 					const cachedTime = this.lastPositiveStamina;
 					SuperJanitor.set(
 						`${this.instance}Stamina_Fall_Threshhold`,
 						() =>
 							this.lastPositiveStamina === cachedTime &&
 							now(true) - cachedTime > RegenProperties.NegativeStaminaTimeAllowed &&
-							this.ws.setStateFor(this.instance.Parent, CombatState.Exhausted, true, 20, false, true),
+							util.writeFor(CombatState.Exhausted, true, 20, false, true),
 						RegenProperties.NegativeStaminaTimeAllowed,
 					);
 				} else {
 					this.lastPositiveStamina = now(true);
 					SuperJanitor.del(`${this.instance}Stamina_Fall_Threshhold`);
 				}
-				return this.ws.setState(this.instance.Parent, VitalityState.Stamina, current);
+				return util.write(VitalityState.Stamina, current);
 			}),
 		);
 	}

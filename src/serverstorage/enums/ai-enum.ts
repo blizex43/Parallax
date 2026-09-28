@@ -76,7 +76,7 @@ export const DefaultFSMCalls = <const>{
 	blocking: (bb: BlackboardStateType, character: CharacterModel): FSM.FSM => {
 		const fsm = new FSM.FSM("BlockState", bb);
 		fsm.RegisterState("BlockState", new DummyBlockState(character));
-		return fsm
+		return fsm;
 	},
 	attack: (bb: BlackboardStateType, character: CharacterModel): FSM.FSM => {
 		const fsm = new FSM.FSM("Attack", bb);
@@ -89,3 +89,4 @@ export const DefaultFSMCalls = <const>{
 		return fsm;
 	},
 };
+

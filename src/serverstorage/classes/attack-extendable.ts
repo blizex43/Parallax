@@ -5,11 +5,12 @@ import type { AnimationService } from "serverstorage/services/animation";
 import type { VFXService } from "serverstorage/services/effect";
 import type { HurtboxService } from "serverstorage/services/hurtbox";
 import type { StaminaService } from "serverstorage/services/stamina";
-import type { WebsocketManagementService } from "serverstorage/services/websocket-manager";
+import type { JournalService } from "serverstorage/services/journal";
 import type { TrackEventsService } from "serverstorage/services/track-events";
 import { TrackComponent } from "shared/components/track";
 import { DamageRecieved, PostWindowData } from "shared/constants";
 import { CombatState } from "shared/enums/config-enum";
+import { CastEnums } from "shared/enums/cast-enum";
 import { StyleCatalog } from "shared/enums/style-catalog-enum";
 import { AnimationTrackNames } from "shared/structs/animation";
 import type {
@@ -34,7 +35,7 @@ export abstract class AttackExtendable {
 	protected readonly services = {
 		hurtbox: Dependency<HurtboxService>(),
 		animation: Dependency<AnimationService>(),
-		wsm: Dependency<WebsocketManagementService>(),
+		journal: Dependency<JournalService>(),
 		trackEvents: Dependency<TrackEventsService>(),
 		effect: Dependency<VFXService>(),
 		stamina: Dependency<StaminaService>(),
@@ -79,7 +80,7 @@ export abstract class AttackExtendable {
 	}
 
 	protected windup(context: AttackContext, duration: number): void {
-		return this.services.wsm.setStateFor(context.character, CombatState.Windup, true, duration, false);
+		return void this.services.journal.fetchUtil(context.character)?.writeFor(CombatState.Windup, true, duration, false);
 	}
 
 	protected drain(context: AttackContext, window: HitWindow) {
@@ -103,16 +104,20 @@ export abstract class AttackExtendable {
 	}
 
 	protected recovery(context: AttackContext, duration: number): void {
-		return this.services.wsm.setStateFor(context.character, CombatState.Recovery, true, duration, false);
+		return void this.services.journal.fetchUtil(context.character)?.writeFor(CombatState.Recovery, true, duration, false);
 	}
 
 	protected cooldown(context: AttackContext, duration: number): void {
-		return this.services.wsm.addValueToTableState(
+		return void this.services.journal.writeStateValueRecordFor(
 			context.character,
 			CombatState.Cooldowns,
 			this.nameof,
+			{
+				start: os.clock(),
+				end: os.clock() + duration,
+				halted: false,
+			},
 			duration,
-			true,
 		);
 	}
 
@@ -121,7 +126,7 @@ export abstract class AttackExtendable {
 	}
 
 	protected active(context: AttackContext, on: boolean): void {
-		return void this.services.wsm.setState(context.character, CombatState.Attacking, on);
+		return void this.services.journal.writeStateValue(context.character, CombatState.Attacking, on);
 	}
 
 	protected post(context: AttackContext, window: HitWindow, hitbox: Hitbox): void {
@@ -229,9 +234,14 @@ export abstract class AttackExtendable {
 	}
 
 	protected canAttack(character: CharacterModel): boolean {
+		const attackStates = CastEnums.find((enums) => enums.name === "Attack")?.castables ?? [];
+		const hasActiveState = attackStates.some((state) =>
+			this.services.journal.fetchStateValue<boolean>(character, state),
+		);
+		const cooldowns = this.services.journal.fetchStateValue<Record<string, unknown>>(character, CombatState.Cooldowns);
 		return (
-			!this.services.wsm.hasEnum(character, "Attack") &&
-			!this.services.wsm.getCooldownTrueStateValue(character, CombatState.Cooldowns, this.nameof)
+			!hasActiveState &&
+			!(cooldowns && this.nameof in cooldowns)
 		);
 	}
 
@@ -254,8 +264,8 @@ export abstract class AttackExtendable {
 			context.scaling.size.x,
 			context.scaling.size.y,
 			this.getStyleAttribute(context.data.style, "range") *
-				this.getStyleOffset(context.data.style, "range") *
-				(context.scaling.size.z * context.scaling.size.y),
+			this.getStyleOffset(context.data.style, "range") *
+			(context.scaling.size.z * context.scaling.size.y),
 		).mul((<BoxShape>window.query.shape).size);
 	}
 
