@@ -2,14 +2,7 @@ import { RunService as Runtime } from "@rbxts/services";
 import Object from "@rbxts/object-utils";
 import Signal from "@rbxts/signal";
 import { atom } from "@rbxts/charm";
-import {
-	AIBlackboardKey,
-	CameraState,
-	CombatState,
-	MiscState,
-	MovementState,
-	VitalityState,
-} from "./enums/config-enum";
+import { CameraState, CombatState, MiscState, MovementState, VitalityState } from "./enums/config-enum";
 import type { Cameras } from "client/controllers/camera";
 import type { RollOptions, RollType } from "./structs/info";
 import type { PlayerData } from "./data-models/player-data";
@@ -19,7 +12,7 @@ import type { HitData, PostableWindowData } from "./structs/attack";
 import { TrackComponent } from "./components/track";
 enum DevID {
 	Bliz = 99574819,
-	vivxer = 4219808982,
+	vivxer = 4225805526,
 }
 export const DEVELOPERS = new Set(Object.values(DevID)); // add extra developer user IDs here
 export function isDeveloper(player: Player): boolean {
@@ -64,21 +57,21 @@ export function createFlameworkCharms() {
 		[MiscState.Debug]: atom(false),
 		[MiscState.Effect]: atom(false),
 		[MiscState.Cutscene]: atom(false),
-		[AIBlackboardKey.Aggression]: atom(false),
-		[AIBlackboardKey.IsStunned]: atom(false),
-		[AIBlackboardKey.IsInvincible]: atom(false),
-		[AIBlackboardKey.ChaseTarget]: atom(false),
-		[AIBlackboardKey.BlockDefensively]: atom(false),
-		[AIBlackboardKey.TakeDamageOnly]: atom(false),
-		[AIBlackboardKey.CombatRange]: atom(0),
-		[AIBlackboardKey.AttackCooldown]: atom(999),
-		[AIBlackboardKey.PatrolRadius]: atom(20),
-		[AIBlackboardKey.DetectionRange]: atom(15),
-		[AIBlackboardKey.RetreatThreshold]: atom(0),
-		[AIBlackboardKey.MovementSpeed]: atom(0.7),
-		[AIBlackboardKey.StrafeDistance]: atom(0),
-		[AIBlackboardKey.TargetPriority]: atom(3),
-		[AIBlackboardKey.PreferredRange]: atom(0),
+		// [AIBlackboardKey.Aggression]: atom(false),
+		// [AIBlackboardKey.IsStunned]: atom(false),
+		// [AIBlackboardKey.IsInvincible]: atom(false),
+		// [AIBlackboardKey.ChaseTarget]: atom(false),
+		// [AIBlackboardKey.BlockDefensively]: atom(false),
+		// [AIBlackboardKey.TakeDamageOnly]: atom(false),
+		// [AIBlackboardKey.CombatRange]: atom(0),
+		// [AIBlackboardKey.AttackCooldown]: atom(999),
+		// [AIBlackboardKey.PatrolRadius]: atom(20),
+		// [AIBlackboardKey.DetectionRange]: atom(15),
+		// [AIBlackboardKey.RetreatThreshold]: atom(0),
+		// [AIBlackboardKey.MovementSpeed]: atom(0.7),
+		// [AIBlackboardKey.StrafeDistance]: atom(0),
+		// [AIBlackboardKey.TargetPriority]: atom(3),
+		// [AIBlackboardKey.PreferredRange]: atom(0),
 	};
 }
 export const FlameworkIgnited = new Signal();

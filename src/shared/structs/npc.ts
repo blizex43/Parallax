@@ -1,10 +1,12 @@
 import type { PsuedoPlayerData } from "shared/data-models/player-data";
 import type { AutomatedCharacterComponent } from "serverstorage/components/automated-character";
-import { AIData, AIPresetName } from "./ai";
-import { Alias } from "./psuedo";
-
+import type { AIData } from "./automated-character";
+import type { Alias } from "./psuedo";
+import type { AIBehaviors, NPCEntitys } from "shared/enums/npc-enum";
+export type EntityType = ArrayUnionViewable<typeof NPCEntitys>;
+export type BehaviorType = ArrayUnionViewable<typeof AIBehaviors>;
 export interface CreateType {
-	Type: AIPresetName;
+	Type: BehaviorType;
 	Enable?: boolean;
 	Model?: string;
 	Alias?: Alias;

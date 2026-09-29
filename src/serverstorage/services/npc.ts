@@ -3,19 +3,14 @@ import type { PsuedoService } from "./psuedo";
 import Log from "shared/log";
 import type { CreateType, NPCType } from "shared/structs/npc";
 import { AutomatedCharacterComponent } from "serverstorage/components/automated-character";
-import type { AiService } from "./ai";
 import type { PsuedoDefaultData } from "shared/structs/psuedo";
-import type { ModelService } from "./model";
 import { NPCAdded, NPCRemoving } from "shared/constants";
-import { Service } from "@flamework/core";
 //@Service()
 export class NpcService {
 	protected tag: string = $nameof<NpcService>();
 	private readonly npcPool: Map<CharacterModel, NPCType> = new Map();
 	constructor(
 		private readonly psuedo: PsuedoService,
-		private readonly model: ModelService,
-		private readonly ai: AiService,
 	) {}
 	onInit(): void {}
 

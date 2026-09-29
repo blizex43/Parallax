@@ -1,2 +1,2 @@
-export const NPCEntitys = ["dummy", "normal"];
-export const AIBehaviors = ["attack", "idle", "block"];
+export const NPCEntitys = <const>["dummy", "normal"];
+export const AIBehaviors = <const>["attack", "idle", "block"];
