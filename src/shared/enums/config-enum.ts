@@ -67,30 +67,6 @@ export const enum Title {
 	Other = "other",
 }
 
-export const enum AIBlackboardKey {
-	// Combat behavior
-	Aggression = "Aggression",
-	CombatRange = "CombatRange",
-	AttackCooldown = "AttackCooldown",
-	ChaseTarget = "ChaseTarget",
-	BlockDefensively = "BlockDefensively",
-	TakeDamageOnly = "TakeDamageOnly",
-
-	// Movement & positioning
-	PatrolRadius = "PatrolRadius",
-	DetectionRange = "DetectionRange",
-	RetreatThreshold = "RetreatThreshold",
-	MovementSpeed = "MovementSpeed",
-	StrafeDistance = "StrafeDistance",
-
-	// Target selection
-	TargetPriority = "TargetPriority",
-	PreferredRange = "PreferredRange",
-
-	// Special states
-	IsStunned = "IsStunned",
-	IsInvincible = "IsInvincible",
-}
 /**
  * @uuid
  */

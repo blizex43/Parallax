@@ -1,6 +1,5 @@
 import type { OverloadType, Type } from "@rbxts/conch";
 import type { ConchCommands, ConchPermissions, ConchRoles, CustomConchTypeNames } from "shared/enums/conch-enum";
-
 export type Roles = ArrayUnionViewable<typeof ConchRoles>;
 export type CommandName = ArrayUnionViewable<typeof ConchCommands>;
 export type PermissionName = ArrayUnionViewable<typeof ConchPermissions>;
