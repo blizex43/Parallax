@@ -39,7 +39,7 @@ export interface StandardEffect extends BaseEffect {
 }
 
 export interface EffectModule {
-	new (options: PacketSafeEffectOptions): StandardEffect;
+	new (options: PacketSafeEffectOptions, name?: EffectName): StandardEffect;
 }
 
 export interface EffectSpec {
@@ -54,6 +54,7 @@ export interface EffectSpec {
 	size?: number;
 	isForged?: boolean; // Is Made From VFX-Forge
 	weld?: boolean;
+	parentToEffectFolder?: boolean;
 	offset?: Vector3;
 	emissions?: number; //// Particle Count
 	variants?: string[];
@@ -67,4 +68,12 @@ export interface SoundSpec {
 export interface EffectContext {
 	particleReference: EffectSpec;
 	soundReference?: SoundSpec;
+	handler?: "footstep";
+	keyframes?: EffectKeyframe[];
+}
+
+export interface EffectKeyframe {
+	at: number;
+	effect: EffectName;
+	options?: Partial<PacketSafeEffectOptions>;
 }

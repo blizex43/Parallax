@@ -14,6 +14,9 @@ export abstract class JournalHandler {
 	private readonly whitelistContainer: string[] = [];
 	constructor(protected readonly journalUtil: JournalUtil<StateManager<GameState>>) {}
 	protected runMethods(methods: JournalHandlerMethodsArray) {
+		methods.map(
+			(method) => (method.paths = method.paths.map((path) => this.journalUtil.resolvePathOrChunkToPath(path)!)),
+		);
 		for (const method of methods) {
 			if (method.paths.isEmpty()) continue;
 			if (method.handleType !== "revert")

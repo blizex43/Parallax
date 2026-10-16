@@ -1,16 +1,15 @@
 import { args } from "@rbxts/conch";
 import type { RegistryType } from "shared/structs/conch";
-import type { BehaviorType, EntityType } from "shared/structs/npc";
+import type { NPCPresetType } from "shared/structs/npc";
 import kick_cmd from "serverstorage/conch/commands/kick";
 import spawn_cmd from "serverstorage/conch/commands/spawn";
-import { AIBehaviors, NPCEntitys } from "shared/enums/npc-enum";
-import { QuickRegisterConchType } from "shared/enums/conch-types-enum";
-import Object from "@rbxts/object-utils";
-import { INITIAL_DATA, type PlayerData } from "shared/data-models/player-data";
+import { type PlayerData } from "shared/data-models/player-data";
 import teleport_cmd from "serverstorage/conch/commands/teleport";
 import set_cmd from "serverstorage/conch/commands/set";
 import debug_cmd from "serverstorage/conch/commands/debug";
 import query_cmd from "serverstorage/conch/commands/query";
+
+import { ConchPresets } from "shared/enums/conch-enum";
 
 export const ConchRegistry: RegistryType = {
 	kick: {
@@ -25,26 +24,15 @@ export const ConchRegistry: RegistryType = {
 	spawn: {
 		permissions: ["spawn"],
 		arguments: () =>
-			$tuple(
-				args.overload([
-					{
-						arguments: [
-							args.player("player", "The player you'd like the entity to spawn on"),
-							QuickRegisterConchType(NPCEntitys, "entity", "Spawn a non-sentient NPC"),
-							QuickRegisterConchType(AIBehaviors, "behavior", "The Entity's Behavior"),
-						],
-						description: "Spawn an Entity into the game",
-					},
-				]),
-			),
-		callback: (player: Player, entity: EntityType, behavior: BehaviorType) => spawn_cmd(player, entity, behavior),
+			$tuple(args.player("player", "The player you'd like the entity to spawn on"), ConchPresets.NPC),
+		callback: (player: Player, preset: NPCPresetType) => spawn_cmd(player, preset),
 	},
 	set: {
 		permissions: ["set"],
 		arguments: () =>
 			$tuple(
 				args.players("players", "Set a player's data value"),
-				QuickRegisterConchType(Object.keys(INITIAL_DATA), "key", "The data-type to set"),
+				ConchPresets.DataKeys,
 				args.any("value", "The value to set"),
 			),
 		callback: (players: Player[], key: keyof PlayerData, value: unknown): void => set_cmd(players, key, value),

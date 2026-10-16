@@ -4,11 +4,15 @@ import type { LogStart, OnCharacterRemove } from "shared/hooks";
 import { Janitor } from "@rbxts/janitor";
 import { $nameof, $warn } from "rbxts-transform-debug";
 import { MarkForRemoval } from "shared/constants";
-export interface RagdollProperties {
-	duration?: number;
-	velocity?: Vector3;
-	keepVelocity?: boolean;
+import type { RagdollProperties } from "shared/structs/ragdoll";
+
+interface NeckJointOffsets {
+	part0: BasePart;
+	part1: BasePart;
+	c0: CFrame;
+	c1: CFrame;
 }
+
 interface RagdollData {
 	ragdoll: IActiveRagdoll;
 	janitor: Janitor;
@@ -26,8 +30,10 @@ export class RagdollService implements LogStart, OnCharacterRemove {
 	}
 
 	public ragdoll(character: CharacterModel, properties: RagdollProperties): Maybe<RagdollData> {
+		const neckOffsets = this.getNeckJointOffsets(character);
 		const ragdoll = Falldown.RagdollCharacter(character, 0);
 		if (!ragdoll) return;
+		if (neckOffsets) this.applyNeckJointOffsets(neckOffsets);
 		this.eraseSchedule(character);
 		const janitor = new Janitor();
 		const ragdollData = <RagdollData>{ ragdoll, janitor, duration: properties.duration };
@@ -72,6 +78,19 @@ export class RagdollService implements LogStart, OnCharacterRemove {
 
 	private getFromRotation(character: CharacterModel): Maybe<RagdollData> {
 		return this.ragdolls.get(character);
+	}
+
+	private getNeckJointOffsets(character: CharacterModel): Maybe<NeckJointOffsets> {
+		const neck = character.FindFirstChild("Neck", true);
+		if (!neck?.IsA("Motor6D") || !neck.Part0 || !neck.Part1) return;
+		return { part0: neck.Part0, part1: neck.Part1, c0: neck.C0, c1: neck.C1 };
+	}
+
+	private applyNeckJointOffsets(offsets: NeckJointOffsets): void {
+		const attachment0 = offsets.part0.FindFirstChild("Neck_Attachment0");
+		const attachment1 = offsets.part1.FindFirstChild("Neck_Attachment1");
+		if (attachment0?.IsA("Attachment")) attachment0.CFrame = offsets.c0;
+		if (attachment1?.IsA("Attachment")) attachment1.CFrame = offsets.c1;
 	}
 
 	private addToRotation(character: CharacterModel, data: RagdollData): void {

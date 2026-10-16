@@ -60,6 +60,10 @@ export class StaminaService implements OnInit {
 		regen.giveValues({ regenAmount: abs(regenAmount) });
 	}
 
+	public getCurrent(character: CharacterModel): Maybe<number> {
+		return this.get(character)?.get();
+	}
+
 	private data(character: CharacterModel): PsuedoPlayerData {
 		const player = <Maybe<Player>>Players.GetPlayerFromCharacter(character);
 		return player ? this.database.get(player) : this.database.getPsuedo(this.guid.get(character));

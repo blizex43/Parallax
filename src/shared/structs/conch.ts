@@ -16,7 +16,7 @@ export interface RoleData {
 }
 export interface RegistryData {
 	permissions: PermissionName[];
-	arguments: () => LuaTuple<Type[] | OverloadType[]>;
+	arguments: () => LuaTuple<(Type | OverloadType)[]>;
 	callback: Callback;
 }
 

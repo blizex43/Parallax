@@ -19,6 +19,14 @@ export const isPlayer = t.instanceIsA("Player");
 export const isDecal = t.instanceIsA("Decal");
 export const isSound = t.instanceIsA("Sound");
 export const isAccessory = t.instanceIsA("Accessory");
+
+export function isCharacterModel(instance: Instance): instance is CharacterModel {
+	if (!isModel(instance)) return false;
+	const humanoid = instance.FindFirstChildOfClass("Humanoid");
+	const root = instance.FindFirstChild("HumanoidRootPart");
+	const head = instance.FindFirstChild("Head");
+	return humanoid !== undefined && isBasePart(root) && isBasePart(head);
+}
 // Natives
 export const isBoolean = t.boolean;
 export const isNumber = t.number;

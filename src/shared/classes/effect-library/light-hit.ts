@@ -1,7 +1,7 @@
 import { VisualEffectDecorator } from "@rbxts/refx";
 import type { EffectContext, EffectName, PacketSafeEffectOptions } from "shared/structs/effect";
 import { BasePartEffect } from "../effect";
-import { EffectCatalog } from "shared/enums/effect-catalog-enum";
+import { EffectCatalog } from "shared/enums/effect-enum";
 @VisualEffectDecorator
 export class LightHitEffect extends BasePartEffect {
 	protected name: EffectName = "Light-Hit";

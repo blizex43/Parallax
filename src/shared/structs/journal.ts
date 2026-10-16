@@ -1,12 +1,12 @@
 import type { ActionJournal, StateManager } from "@rbxts/action-journal";
 import type {
-	AIBlackboardKey,
 	Title,
 	CameraState,
 	CombatState,
 	MiscState,
 	MovementState,
 	VitalityState,
+	NPCResourcesState,
 } from "shared/enums/config-enum";
 import type { CooldownAtom, CooldownEntry, DependerAtom, DependerEntry } from "./atom";
 import type { Default } from "@rbxts/default";
@@ -64,21 +64,10 @@ export interface GameState {
 		};
 	};
 	[Title.AI]: {
-		[AIBlackboardKey.Aggression]: boolean;
-		[AIBlackboardKey.IsStunned]: boolean;
-		[AIBlackboardKey.IsInvincible]: boolean;
-		[AIBlackboardKey.ChaseTarget]: boolean;
-		[AIBlackboardKey.BlockDefensively]: boolean;
-		[AIBlackboardKey.TakeDamageOnly]: boolean;
-		[AIBlackboardKey.CombatRange]: number;
-		[AIBlackboardKey.AttackCooldown]: number;
-		[AIBlackboardKey.PatrolRadius]: number;
-		[AIBlackboardKey.DetectionRange]: number;
-		[AIBlackboardKey.RetreatThreshold]: number;
-		[AIBlackboardKey.MovementSpeed]: number;
-		[AIBlackboardKey.StrafeDistance]: number;
-		[AIBlackboardKey.TargetPriority]: number;
-		[AIBlackboardKey.PreferredRange]: number;
+		[NPCResourcesState.AggressiveWeight]: number;
+		[NPCResourcesState.BlockWeight]: number;
+		[NPCResourcesState.DetectRange]: number;
+		[NPCResourcesState.PassiveWeight]: number;
 	};
 	[Title.Other]: {
 		[MiscState.Debug]: boolean;

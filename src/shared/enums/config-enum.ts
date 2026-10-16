@@ -20,6 +20,24 @@ export const enum VitalityState {
 	Iframes = "Iframes",
 }
 
+export const enum AIBlackboardKey {
+	Aggression = "Aggression",
+	IsStunned = "IsStunned",
+	IsInvincible = "IsInvincible",
+	ChaseTarget = "ChaseTarget",
+	BlockDefensively = "BlockDefensively",
+	TakeDamageOnly = "TakeDamageOnly",
+	CombatRange = "CombatRange",
+	AttackCooldown = "AttackCooldown",
+	PatrolRadius = "PatrolRadius",
+	DetectionRange = "DetectionRange",
+	RetreatThreshold = "RetreatThreshold",
+	MovementSpeed = "MovementSpeed",
+	StrafeDistance = "StrafeDistance",
+	TargetPriority = "TargetPriority",
+	PreferredRange = "PreferredRange",
+}
+
 export const enum MiscState {
 	Debug = "Debug",
 	Effect = "Effect",
@@ -87,6 +105,14 @@ export const enum MovementState {
 	NoMove = "NoMove",
 	NoTrip = "NoTrip",
 }
+
+export const enum NPCResourcesState {
+	AggressiveWeight = "AggressiveWeight",
+	BlockWeight = "BlockWeight",
+	DetectRange = "DetectRange",
+	PassiveWeight = "PassiveWeight",
+}
+
 export const MovementConfig: Partial<Record<MovementState | CombatState | MiscState, MovementSettings>> = {
 	[MovementState.Walk]: {
 		speed: HumanoidBaseWalkspeed,

@@ -7,12 +7,10 @@ import { OnSignalSubscribed, SpawnTask } from "shared/decorators";
 import type { LogStart } from "shared/hooks";
 import { Players } from "@rbxts/services";
 import type { AtomType } from "shared/structs/atom";
-import type { NPCType } from "shared/structs/npc";
-import { OnNPCDestroyed } from "serverstorage/hooks";
 import Signal from "@rbxts/signal";
 
 @Service()
-export class WebsocketService implements OnInit, LogStart, OnNPCDestroyed {
+export class WebsocketService implements OnInit, LogStart {
 	public readonly wsCreated: Signal<(plaracter: Plaracter, mgr: WebsocketUtilities) => void> = new Signal();
 	public readonly wsDestroying: Signal<(plaracter: Plaracter, mgr: WebsocketUtilities) => void> = new Signal();
 	private readonly playerStates: Map<
@@ -42,9 +40,6 @@ export class WebsocketService implements OnInit, LogStart, OnNPCDestroyed {
 		}
 	}
 
-	public onNPCDestroyed(npc: NPCType): void {
-		this.removeNPC(npc.model);
-	}
 
 	@OnSignalSubscribed(Players.PlayerAdded)
 	public addPlayer(player: Player): void {

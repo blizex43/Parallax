@@ -69,12 +69,9 @@ export class CFrameController extends JournalHandler implements OnStart, OnRende
 		const humanoid = this.character.getHumanoid();
 		const status = this.journalUtil.read<boolean>(MovementState.Shiftlocked);
 		if (!character || !root || !humanoid || !this.tilter) return;
-		if (
-			(this.isWhitelisted() || !status || humanoid.GetState() === Enum.HumanoidStateType.Dead) &&
-			this.tilter.enabled
-		)
-			this.tilter.disable();
-		else if (this.journalUtil.read<boolean>(MovementState.Shiftlocked) && !this.tilter.enabled)
+		if (this.isWhitelisted() || !status || humanoid.GetState() === Enum.HumanoidStateType.Dead) {
+			if (this.tilter.enabled) this.tilter.disable();
+		} else if (this.journalUtil.read<boolean>(MovementState.Shiftlocked) && !this.tilter.enabled)
 			this.tilter.enable();
 
 		if (!this.isBlacklisted() && this.lockedYaw) this.lockedYaw = undefined;

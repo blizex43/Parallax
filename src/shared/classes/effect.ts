@@ -33,7 +33,7 @@ import { getCharacterLimbs, getChildAttachments, getHeightFromHumanoid } from "s
 import Log from "shared/log";
 import { multiplyNumberSequence } from "shared/utility/complex";
 import { Create } from "shared/utility/instance";
-import { emit } from "@zilibobi/forge-vfx"
+import { emit } from "@zilibobi/forge-vfx";
 import LazyIterator from "@rbxts/lazy-iterator";
 import { atom } from "@rbxts/charm";
 
@@ -76,12 +76,12 @@ export abstract class BasePartEffect extends BaseEffect implements StandardEffec
 		const effects = <EffectReferenceType[]>[];
 		if (options?.more?.limb)
 			for (const position of options.more.limb) {
-				const effect = this.makeEffectFromPosition(character, position, variantCallback);
+				const effect = this.makeEffectFromPosition(character, position, variantCallback, options);
 				if (effect) effects.push(effect);
 			}
 		if (positions)
 			for (const position of positions) {
-				const effect = this.makeEffectFromPosition(character, position, variantCallback);
+				const effect = this.makeEffectFromPosition(character, position, variantCallback, options);
 				if (effect) effects.push(effect);
 			}
 		this.effectsCache.append(...effects);

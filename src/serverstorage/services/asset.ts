@@ -7,7 +7,6 @@ import {
 	combatAnimationLiterals,
 	movementAnimationLiterals,
 	styleAnimationLiterals,
-	styleClientSafeLiterals,
 } from "shared/enums/animation-enum";
 import { Serializers } from "shared/network";
 import type { AnimationPacket, AnimationPacketResolved, AssetPacket } from "shared/structs/packets";
@@ -15,20 +14,22 @@ import { roundDecimal } from "shared/utility/numbers";
 import type { DataService } from "./third-party/data";
 import type { PlayerData, PlayerDataKeys } from "shared/data-models/player-data";
 import type {
-	ClientSafeStyleAnimations,
 	CombatAnimations,
 	MovementAnimations,
+	RuntimeStyleAnimations,
 	StyleAnimations,
 } from "shared/structs/animation";
 import { Create } from "shared/utility/instance";
 import { Preloader } from "shared/classes/preload";
 import { $warn } from "rbxts-transform-debug";
 import { isAnimation, isFolder } from "shared/utility/t-isA";
-import Object from "@rbxts/object-utils";
 import { isAssetId } from "shared/utility/strings";
 import type { Styles } from "shared/structs/styles";
+import { Players } from "@rbxts/services";
+import type { OnCharacterAdd } from "shared/hooks";
+import { isCharacterModel } from "shared/utility/t-isA";
 @Service()
-export class AssetService extends Preloader implements OnInit {
+export class AssetService extends Preloader implements OnInit, OnCharacterAdd {
 	public movementAnimations = <MovementAnimations>{};
 	public combatAnimations = <CombatAnimations>{};
 	public readonly styleAnimations = new Map<Styles, Map<string, StyleAnimations>>();
@@ -59,9 +60,15 @@ export class AssetService extends Preloader implements OnInit {
 			});
 	}
 
+	public onCharacterAdd(character: CharacterModel): void {
+		const player = Players.GetPlayerFromCharacter(character);
+		const data = player && this.database.get(player);
+		if (data) this.setCharacterStyle(character, data.style, data.stance);
+	}
+
 	private dependencyDataListener() {
 		this.database.updated.Connect(async (player: Player, _: PlayerData, keys: PlayerDataKeys[]) => {
-			if (!keys.includes("style")) return;
+			if (!keys.includes("style") && !keys.includes("stance")) return;
 			print("Changing Client Assets!", keys);
 			this.setup(player);
 		});
@@ -111,25 +118,32 @@ export class AssetService extends Preloader implements OnInit {
 
 	private async initializeAssets(player: Player): Promise<AssetPacket> {
 		const playerData = await this.database.forceGet(player);
-		const animations: AnimationPacketResolved = this.animationsToAssetId(
-			Object.deepCopy({
-				style: <ClientSafeStyleAnimations>this.getStyleAnimations(playerData),
-				movement: <MovementAnimations>this.getMovementAnimations(),
-				combat: <CombatAnimations>this.getCombatAnimations(),
-			}),
-		);
-		return animations;
+		this.setCharacterStyle(player.Character, playerData.style, playerData.stance);
+		const animations = this.animationsToAssetId({
+			style: this.getStyleAnimations(playerData),
+			movement: this.getMovementAnimations(),
+			combat: this.getCombatAnimations(),
+		});
+		return {
+			...animations,
+			selectedStyle: tostring(playerData.style),
+			selectedStance: playerData.stance,
+		};
 	}
 
 	private animationsToAssetId(animations: AnimationPacket): AnimationPacketResolved {
-		for (const [, animHost] of pairs(animations))
-			for (const [name, animation] of pairs(<CombatAnimations>animHost)) {
-				(<CombatAnimations>animHost)[name] = isAssetId(animation.AnimationId)
-					? <never>animation.AnimationId
-					: <never>"rbxassetid://0";
-			}
+		return {
+			combat: <Record<keyof CombatAnimations, string>>this.animationIds(animations.combat),
+			movement: <Record<keyof MovementAnimations, string>>this.animationIds(animations.movement),
+			style: this.animationIds(animations.style),
+		};
+	}
 
-		return <AnimationPacketResolved>(<never>animations);
+	private animationIds(animations: Record<string, Animation>): Record<string, string> {
+		const ids: Record<string, string> = {};
+		for (const [name, animation] of pairs(animations))
+			ids[name] = isAssetId(animation.AnimationId) ? animation.AnimationId : "rbxassetid://0";
+		return ids;
 	}
 
 	private createStyleAnimationTable(): StyleAnimations {
@@ -164,25 +178,33 @@ export class AssetService extends Preloader implements OnInit {
 		return this.combatAnimations;
 	}
 
-	private removeStyleSafeIndexes(anims: StyleAnimations): ClientSafeStyleAnimations {
-		const obj = <ClientSafeStyleAnimations>{};
-		for (const [name, value] of pairs(anims)) {
-			if (styleClientSafeLiterals.includes(<"style_idle">("style_" + name))) {
-				obj[<keyof ClientSafeStyleAnimations>("style_" + name)] = value;
-			}
-		}
-		return obj;
-	}
-
-	private getStyleAnimations(playerData: PlayerData): ClientSafeStyleAnimations {
+	private getStyleAnimations(playerData: PlayerData): RuntimeStyleAnimations {
 		const styleKey = playerData.style;
 		const stanceKey = playerData.stance;
 		const styleMap =
 			this.styleAnimations.get(styleKey) ??
 			this.styleAnimations.get("Base") ??
 			new Map<string, StyleAnimations>();
-		const stanceAnims = styleMap.get(stanceKey) ?? styleMap.get("default") ?? this.createStyleAnimationTable();
-		print(styleKey, stanceKey, styleMap);
-		return this.removeStyleSafeIndexes(stanceAnims);
+		const stanceAnims =
+			styleMap.get(stanceKey.lower()) ?? styleMap.get("default") ?? this.createStyleAnimationTable();
+		const animations: RuntimeStyleAnimations = {
+			style_idle: stanceAnims.idle,
+			style_walk: stanceAnims.walk,
+		};
+		for (const [style, stances] of this.styleAnimations) {
+			const normalizedStyle = tostring(style).lower();
+			for (const [stance, values] of stances) {
+				const normalizedStance = stance.lower();
+				for (const [name, animation] of pairs(values))
+					animations[`${normalizedStyle}:${normalizedStance}:${name}`] = animation;
+			}
+		}
+		return animations;
+	}
+
+	private setCharacterStyle(character: Maybe<Model>, style: Styles, stance: string): void {
+		if (!character || !isCharacterModel(character)) return;
+		character.SetAttribute("Style", tostring(style));
+		character.SetAttribute("Stance", stance);
 	}
 }

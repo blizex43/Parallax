@@ -1,7 +1,7 @@
 const { huge } = math;
 export = identity(<const>[
 	{
-		Alias: "Default",
+		Alias: "default",
 		firstName: "Default",
 		style: "Base",
 		stance: "Default",
@@ -17,7 +17,7 @@ export = identity(<const>[
 		impulse: 0,
 	},
 	{
-		Alias: "Dummy",
+		Alias: "dummy",
 		firstName: "Dummy",
 		style: "Base",
 		stance: "Default",
@@ -34,7 +34,7 @@ export = identity(<const>[
 		trait: "Aggressive",
 	},
 	{
-		Alias: "Bruiser",
+		Alias: "weak",
 		firstName: "Bruiser",
 		style: "Base",
 		stance: "Default",
@@ -51,7 +51,7 @@ export = identity(<const>[
 		trait: "Aggressive",
 	},
 	{
-		Alias: "Rogue",
+		Alias: "weak-variant-fast",
 		firstName: "Rogue",
 		style: "Base",
 		stance: "Default",
@@ -68,7 +68,7 @@ export = identity(<const>[
 		trait: "Attentive",
 	},
 	{
-		Alias: "Scholar",
+		Alias: "weak-variant-smart",
 		firstName: "Scholar",
 		style: "Base",
 		stance: "Default",
@@ -85,7 +85,7 @@ export = identity(<const>[
 		trait: "Focused",
 	},
 	{
-		Alias: "Elite",
+		Alias: "weak-medium",
 		firstName: "Elite",
 		style: "Base",
 		stance: "Default",
@@ -102,7 +102,7 @@ export = identity(<const>[
 		trait: "Aggressive",
 	},
 	{
-		Alias: "Peasant",
+		Alias: "weak-variant-basic",
 		firstName: "Peasant",
 		style: "Base",
 		stance: "Default",

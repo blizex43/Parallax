@@ -18,6 +18,7 @@ import type { SyncPayload } from "@rbxts/charm-sync";
 import type { BaseStateBlackboard } from "./structs/websocket";
 import type { ScreenshakePropertiesType } from "./structs/screen-shake";
 import type { FieldOfViewProperties } from "./structs/field-of-view";
+import type { AttackLiterals } from "./structs/attack";
 
 type SerializedRemote = (packet: SerializedPacket) => void;
 type UnreliableSerializedRemote = Networking.Unreliable<(packet: SerializedPacket) => void>;
@@ -33,6 +34,10 @@ interface ServerEvents {
 
 	readonly game: {
 		attack: SerializedRemote;
+		readonly hitbox: {
+			report(sessionId: string, target: Model): void;
+			cancel(sessionId: string): void;
+		};
 		block: SerializedRemote;
 		sprint: SerializedRemote;
 		dash: SerializedRemote;
@@ -63,6 +68,20 @@ interface ServerEvents {
 interface ClientEvents {
 	readonly game: {
 		sprint: SerializedRemote;
+		readonly hitbox: {
+			begin(
+				sessionId: string,
+				startsAt: number,
+				endsAt: number,
+				offset: CFrame,
+				size: Vector3,
+				animationName: string,
+				attackName: AttackLiterals,
+				cooldownEndsAt: number,
+				animationSpeed: number,
+			): void;
+			finish(sessionId: string): void;
+		};
 	};
 	readonly camera: {
 		screenshake: SerializedRemote;

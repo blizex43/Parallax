@@ -3,7 +3,7 @@ import { ReplicatedStorage } from "@rbxts/services";
 import type { EffectContext, EffectName, EffectReferenceType, PacketSafeEffectOptions } from "shared/structs/effect";
 import { BasePartEffect } from "../effect";
 import { getGroundMaterial, isMovingBackwards } from "shared/utility/basepart";
-import { EffectCatalog } from "shared/enums/effect-catalog-enum";
+import { EffectCatalog } from "shared/enums/effect-enum";
 @VisualEffectDecorator
 export class FootstepEffect extends BasePartEffect {
 	protected name: EffectName = "Footstep";

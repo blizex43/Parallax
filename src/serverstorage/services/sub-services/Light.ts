@@ -1,14 +1,13 @@
 import { Service } from "@flamework/core";
 import { Janitor } from "@rbxts/janitor";
 import { $nameof } from "rbxts-transform-debug";
-import { Hitbox } from "serverstorage/components/hitbox";
+import type { Hitbox } from "serverstorage/components/hitbox";
 import type { TrackComponent } from "shared/components/track";
 import type { OnMoveClassInvoked } from "serverstorage/hooks";
 import type { AttackContext, AttackDefinition, HitWindow, LightData } from "shared/structs/attack";
 import { AttackCatalog } from "shared/enums/catalog-enum";
 import type { AnimationTrackNames } from "shared/structs/animation";
 import { AttackExtendable } from "serverstorage/classes/attack-extendable";
-import { TrackEventSignalParameters } from "shared/structs/trackvents";
 import { Players } from "@rbxts/services";
 @Service()
 export class Light extends AttackExtendable implements OnMoveClassInvoked {
@@ -33,12 +32,13 @@ export class Light extends AttackExtendable implements OnMoveClassInvoked {
 		print(dataMap.index, maxIndex);
 		this.runEffects(context, track);
 		this.windup(context, windupTime);
-		task.delay(windupTime * 0.95, () => this.active(context, true));
+		const clientOwned = Players.GetPlayerFromCharacter(character) !== undefined;
 		for (let win = 0; win < this.lib.windows.size(); win++) {
 			const window = this.winManipulate(this.lib.windows[win], dataMap);
-			const hitbox = this.createAndScale(context, track, window);
-			if (!hitbox) return this.active(context, false);
-			await this.sequence(track, hitbox, context, window).catch(() => this.active(context, false));
+			const hitbox = clientOwned ? undefined : this.createAndScale(context, track, window);
+			if (!clientOwned && !hitbox) return this.active(context, false);
+			if (clientOwned) this.scaleTrack(context, track);
+			await this.sequence(track, hitbox, context, window, maxIndex).catch(() => this.active(context, false));
 		}
 		return await this.onFinished(context, this.getCooldown(context), maxIndex);
 	}
@@ -58,47 +58,22 @@ export class Light extends AttackExtendable implements OnMoveClassInvoked {
 
 	public async sequence(
 		track: TrackComponent,
-		hitbox: Hitbox,
+		hitbox: Maybe<Hitbox>,
 		context: AttackContext,
 		window: HitWindow,
-	): Promise<unknown> {
+		maxIndex: boolean,
+	): Promise<void> {
 		const dataMap = this.getOrCreateDataMap(context.character);
-		const animName = <AnimationTrackNames>this.getAnimationName(context);
-		const endSignal = this.services.trackEvents.manualSignTrack(context.character, animName, "SlowEnd");
-		if (!endSignal) return Promise.resolve(<TrackEventSignalParameters>{});
-		const endPromise = Promise.fromEvent(endSignal.signal);
-		const exitCallback = (): void => {
-			this.active(context, false);
-			// this.runEffects(context, track, 2);
-			hitbox.onDestroy();
-		};
-		hitbox.link((character) => this.success(this.defaultCreateHitData(context, window, character)));
-		endPromise
-			.then(() => {
-				hitbox.start();
-				this.cycleIndex(dataMap);
-				this.refreshPromise(dataMap, context);
-				// this.runEffects(context, track, 2);
-				this.drain(context, window);
-			})
-			.catch(() => {
-				exitCallback();
-			});
-		const cancelPromise = new Promise((resolve) => {
-			const connection = this.cancelledSignal.Connect((sigText) => {
-				if (sigText.character === context.character) {
-					connection.Disconnect();
-					exitCallback();
-					resolve("cancelled");
-				}
-			});
-			endPromise.finally(() => connection.Disconnect());
-		});
 		this.cancelPromise(dataMap);
-		this.post(context, window, hitbox);
-		track.play();
-
-		return Promise.race([endPromise.timeout(2), cancelPromise]);
+		await this.defaultSequence(
+			track,
+			hitbox,
+			context,
+			window,
+			maxIndex ? this.config.endCooldown : this.getCooldown(context),
+		);
+		this.cycleIndex(dataMap);
+		this.refreshPromise(dataMap, context);
 	}
 
 	public winManipulate(window: HitWindow, dataMap: LightData): HitWindow {
