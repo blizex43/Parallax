@@ -1,6 +1,6 @@
 import { Service } from "@flamework/core";
 import type { OnCharacterAdd, OnCharacterRemove } from "shared/hooks";
-import type { AnimationTrackRecord } from "shared/structs/animation";
+import type { RuntimeAnimationTrackRecord } from "shared/structs/animation";
 import { TrackHandler } from "shared/classes/tracks";
 import { SpawnTask } from "shared/decorators";
 import { AssetService } from "./asset";
@@ -29,9 +29,9 @@ export class AnimationService extends TrackHandler implements OnCharacterAdd, On
 		return track;
 	}
 
-	private async initializeCharacter(character: CharacterModel): Promise<AnimationTrackRecord> {
+	private async initializeCharacter(character: CharacterModel): Promise<RuntimeAnimationTrackRecord> {
 		const animator = character.Humanoid.Animator;
-		const animationTracks = <AnimationTrackRecord & Record<string, AnimationTrack>>{};
+		const animationTracks = <RuntimeAnimationTrackRecord>{};
 		for (const [style, stanceMap] of this.asset.styleAnimations) {
 			const styleKey = tostring(style).lower();
 			for (const [stance, stanceObject] of stanceMap) {
@@ -39,17 +39,17 @@ export class AnimationService extends TrackHandler implements OnCharacterAdd, On
 				for (const [name, anim] of pairs(stanceObject)) {
 					const trackKey = `${styleKey}:${stanceKey}:${name}`;
 					const track = this.loadIfValid(animator, anim);
-					if (track) animationTracks[<"idle">trackKey] = track;
+					if (track) animationTracks[trackKey] = track;
 				}
 			}
 		}
 		for (const [name, anim] of pairs(this.asset.combatAnimations)) {
 			const track = this.loadIfValid(animator, anim);
-			if (track) animationTracks[<"idle">name] = track;
+			if (track) animationTracks[name] = track;
 		}
 		for (const [name, anim] of pairs(this.asset.movementAnimations)) {
 			const track = this.loadIfValid(animator, anim);
-			if (track) animationTracks[<"idle">name] = track;
+			if (track) animationTracks[name] = track;
 		}
 		return animationTracks;
 	}

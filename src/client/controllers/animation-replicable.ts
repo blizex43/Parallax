@@ -12,11 +12,9 @@ export class AnimationReplicableController extends SerializedReplicable<Animatio
 	}
 	protected async replicate(packet: AnimationReplicatorPacket): Promise<void> {
 		const { name, options } = packet;
-		if (!this.animation.isRegistered(options.character)) {
-			await this.animation.onCharacterAdd(options.character);
-		}
+		if (!(await this.animation.ensureTrack(options.character, name))) return;
 		if (options.play)
-			this.animation.playAnim(options.character, name, options.stopOthers ?? false, options.offsets);
-		else this.animation.stopAnim(options.character, name);
+			this.animation.playAnimByName(options.character, name, options.stopOthers ?? false, options.offsets);
+		else this.animation.getTrackByName(options.character, name)?.stop();
 	}
 }

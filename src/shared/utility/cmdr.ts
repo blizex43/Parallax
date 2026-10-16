@@ -87,7 +87,7 @@ export function makeEnumType(name: string, values: string[]) {
 			$tuple(findValue(text, true) !== undefined, `Value "${text}" is not a valid ${name}.`),
 		Autocomplete: (text: string) => {
 			const list = findValue(text) as unknown[];
-			return typeOf(list[0]) !== "string" ? getNames(list as Array<NameLike>) : (list as string[]);
+			return typeOf(list[0]) !== "string" ? getNames(<Array<NameLike>>list) : <string[]>list;
 		},
 		Parse: (text: string) => findValue(text, true),
 	};

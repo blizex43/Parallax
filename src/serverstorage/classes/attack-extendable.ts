@@ -6,7 +6,6 @@ import type { VFXService } from "serverstorage/services/effect";
 import type { HurtboxService } from "serverstorage/services/hurtbox";
 import type { StaminaService } from "serverstorage/services/stamina";
 import type { JournalService } from "serverstorage/services/journal";
-import type { TrackEventsService } from "serverstorage/services/track-events";
 import { TrackComponent } from "shared/components/track";
 import { DamageRecieved, PostWindowData } from "shared/constants";
 import { CombatState } from "shared/enums/config-enum";
@@ -25,7 +24,11 @@ import type {
 import type { CharacterLimbsType } from "shared/structs/model";
 import type { EffectPacket } from "shared/structs/packets";
 import type { Styles } from "shared/structs/styles";
-import type { TrackEventSignalParameters } from "shared/structs/trackvents";
+import { Players } from "@rbxts/services";
+import type { HitboxValidationService } from "serverstorage/services/hitbox-validation";
+import type { AnimationReplicatorService } from "serverstorage/services/animation-replicator";
+import { HitboxAttributes } from "serverstorage/enums/hitbox-enum";
+import { AttackTimingCatalog } from "shared/enums/attack-timing-enum";
 export abstract class AttackExtendable {
 	abstract readonly lib: AttackDefinition;
 	abstract readonly nameof: AttackLiterals;
@@ -36,9 +39,10 @@ export abstract class AttackExtendable {
 		hurtbox: Dependency<HurtboxService>(),
 		animation: Dependency<AnimationService>(),
 		journal: Dependency<JournalService>(),
-		trackEvents: Dependency<TrackEventsService>(),
 		effect: Dependency<VFXService>(),
 		stamina: Dependency<StaminaService>(),
+		hitbox: Dependency<HitboxValidationService>(),
+		animationReplicator: Dependency<AnimationReplicatorService>(),
 	};
 
 	public defaultCreateHitData(context: AttackContext, window: HitWindow, character: CharacterModel): HitData {
@@ -71,6 +75,7 @@ export abstract class AttackExtendable {
 		const track = this.getAnimation(context);
 		if (this.cancellable && !this.cancellable(character, data, track)) return;
 		this.cancelledSignal.Fire(context);
+		this.services.hitbox.cancelCharacter(character);
 		task.delay(this.getWindupTime(context), () => this.active(context, false));
 		if (track && track.playing()) track.stop();
 	}
@@ -80,7 +85,9 @@ export abstract class AttackExtendable {
 	}
 
 	protected windup(context: AttackContext, duration: number): void {
-		return void this.services.journal.fetchUtil(context.character)?.writeFor(CombatState.Windup, true, duration, false);
+		return void this.services.journal
+			.fetchUtil(context.character)
+			?.writeFor(CombatState.Windup, true, duration, false);
 	}
 
 	protected drain(context: AttackContext, window: HitWindow) {
@@ -104,20 +111,23 @@ export abstract class AttackExtendable {
 	}
 
 	protected recovery(context: AttackContext, duration: number): void {
-		return void this.services.journal.fetchUtil(context.character)?.writeFor(CombatState.Recovery, true, duration, false);
+		return void this.services.journal
+			.fetchUtil(context.character)
+			?.writeFor(CombatState.Recovery, true, duration, false);
 	}
 
 	protected cooldown(context: AttackContext, duration: number): void {
+		const serverDuration = duration * 0.8;
 		return void this.services.journal.writeStateValueRecordFor(
 			context.character,
 			CombatState.Cooldowns,
 			this.nameof,
 			{
 				start: os.clock(),
-				end: os.clock() + duration,
+				end: os.clock() + serverDuration,
 				halted: false,
 			},
-			duration,
+			serverDuration,
 		);
 	}
 
@@ -129,7 +139,7 @@ export abstract class AttackExtendable {
 		return void this.services.journal.writeStateValue(context.character, CombatState.Attacking, on);
 	}
 
-	protected post(context: AttackContext, window: HitWindow, hitbox: Hitbox): void {
+	protected post(context: AttackContext, window: HitWindow, hitbox?: Hitbox): void {
 		return PostWindowData.Fire(context.character, {
 			hitbox,
 			window,
@@ -137,61 +147,89 @@ export abstract class AttackExtendable {
 		});
 	}
 
-	protected async enterDefaultAttackSequence(context: AttackContext, track: TrackComponent): Promise<boolean> {
+	protected async enterDefaultAttackSequence(
+		context: AttackContext,
+		track: TrackComponent,
+		clientCooldown: number = this.getCooldown(context),
+	): Promise<boolean> {
 		const windupTime = this.getWindupTime(context);
 		this.windup(context, windupTime);
-		task.delay(windupTime, () => this.active(context, true));
+		const clientOwned = Players.GetPlayerFromCharacter(context.character) !== undefined;
 		for (let win = 0; win < this.lib.windows.size(); win++) {
 			const window = this.lib.windows[win];
-			const hitbox = this.createAndScale(context, track, window);
-			if (!hitbox) {
+			const hitbox = clientOwned ? undefined : this.createAndScale(context, track, window);
+			if (!clientOwned && !hitbox) {
 				this.active(context, false);
 				return false;
 			}
-			await this.defaultSequence(track, hitbox, context, window).catch(() => this.active(context, false));
+			if (clientOwned) this.scaleTrack(context, track);
+			await this.defaultSequence(track, hitbox, context, window, clientCooldown).catch(() =>
+				this.active(context, false),
+			);
 		}
 		return true;
 	}
 
 	protected defaultSequence(
 		track: TrackComponent,
-		hitbox: Hitbox,
+		hitbox: Maybe<Hitbox>,
 		context: AttackContext,
 		window: HitWindow,
-	): Promise<unknown> {
+		clientCooldown: number = this.getCooldown(context),
+	): Promise<void> {
 		const animName = this.getAnimationName?.(context);
-		if (!animName) return Promise.resolve(<TrackEventSignalParameters>{});
-		const signal = this.services.trackEvents.manualSignTrack(context.character, animName, "SlowEnd");
-		if (!signal) return Promise.resolve(<TrackEventSignalParameters>{});
-		const promise = Promise.fromEvent(signal.signal);
-		const exitCallback = (): void => {
-			this.active(context, false);
-			hitbox.onDestroy();
-		};
-		hitbox.link((character) => this.success(this.defaultCreateHitData(context, window, character)));
-		promise
-			.timeout(2)
-			.then(() => {
-				hitbox.start();
-				this.drain(context, window);
-			})
-			.catch(() => {
-				exitCallback();
+		if (!animName) return Promise.resolve();
+		const windup = this.getWindupTime(context);
+		const duration = this.getLingerTime(context, window);
+		const player = Players.GetPlayerFromCharacter(context.character);
+		if (player) {
+			const size = HitboxAttributes.Size.mul(this.getRange(context, window));
+			this.post(context, window);
+			this.services.animationReplicator.replicate(context.character, animName, true, true, [], {
+				speed: track.speed,
 			});
-		const cancelPromise = new Promise((resolve) => {
-			const connection = this.cancelledSignal.Connect((sigText) => {
-				if (sigText.character === context.character) {
-					connection.Disconnect();
-					exitCallback();
-					resolve("cancelled");
-				}
+			this.services.hitbox.beginWindow(
+				context,
+				window,
+				animName,
+				windup,
+				duration,
+				clientCooldown,
+				track.speed,
+				window.query.offset,
+				size,
+				(character) => this.success(this.defaultCreateHitData(context, window, character)),
+			);
+		} else {
+			if (!hitbox) return Promise.resolve();
+			this.services.animationReplicator.replicate(context.character, animName, true, true, [], {
+				speed: track.speed,
 			});
-			promise.finally(() => connection.Disconnect());
-		});
-		this.post(context, window, hitbox);
-		track.play();
+			hitbox.link((character) => this.success(this.defaultCreateHitData(context, window, character)));
+			this.post(context, window, hitbox);
+		}
 
-		return Promise.race([promise.timeout(2), cancelPromise]);
+		return new Promise((resolve) => {
+			let finished = false;
+			const finish = (): void => {
+				if (finished) return;
+				finished = true;
+				this.active(context, false);
+				if (hitbox) hitbox.onDestroy();
+				connection.Disconnect();
+				resolve();
+			};
+			const connection = this.cancelledSignal.Connect((cancelledContext) => {
+				if (cancelledContext.character === context.character) finish();
+			});
+			task.delay(windup, () => {
+				if (finished) return;
+				this.active(context, true);
+				this.drain(context, window);
+				if (hitbox) hitbox.start();
+			});
+			task.delay(windup + duration, finish);
+		});
 	}
 
 	protected success(hitData: HitData): void {
@@ -216,7 +254,7 @@ export abstract class AttackExtendable {
 
 	protected getWindupTime(context: AttackContext): number {
 		return (
-			this.lib.phases.windup /
+			AttackTimingCatalog[context.data.style][this.nameof].windup /
 			context.scaling.attack.speed /
 			this.getStyleAttribute(context.data.style, "speed") /
 			this.getStyleOffset(context.data.style, "speed")
@@ -224,7 +262,10 @@ export abstract class AttackExtendable {
 	}
 
 	protected getLingerTime(context: AttackContext, window: HitWindow): number {
-		let linger = window.linger / context.scaling.attack.speed / this.getStyleAttribute(context.data.style, "speed");
+		let linger =
+			AttackTimingCatalog[context.data.style][this.nameof].active /
+			context.scaling.attack.speed /
+			this.getStyleAttribute(context.data.style, "speed");
 		if (window.maxLinger) linger = math.min(window.maxLinger, linger);
 		return linger;
 	}
@@ -238,11 +279,11 @@ export abstract class AttackExtendable {
 		const hasActiveState = attackStates.some((state) =>
 			this.services.journal.fetchStateValue<boolean>(character, state),
 		);
-		const cooldowns = this.services.journal.fetchStateValue<Record<string, unknown>>(character, CombatState.Cooldowns);
-		return (
-			!hasActiveState &&
-			!(cooldowns && this.nameof in cooldowns)
+		const cooldowns = this.services.journal.fetchStateValue<Record<string, unknown>>(
+			character,
+			CombatState.Cooldowns,
 		);
+		return !hasActiveState && !(cooldowns && this.nameof in cooldowns);
 	}
 
 	protected getAnimation(context: AttackContext): Maybe<TrackComponent> {
@@ -264,8 +305,8 @@ export abstract class AttackExtendable {
 			context.scaling.size.x,
 			context.scaling.size.y,
 			this.getStyleAttribute(context.data.style, "range") *
-			this.getStyleOffset(context.data.style, "range") *
-			(context.scaling.size.z * context.scaling.size.y),
+				this.getStyleOffset(context.data.style, "range") *
+				(context.scaling.size.z * context.scaling.size.y),
 		).mul((<BoxShape>window.query.shape).size);
 	}
 

@@ -1,10 +1,9 @@
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 import type {
-	AnimationTrackNames,
-	ClientSafeStyleAnimations,
 	CombatAnimations,
 	MovementAnimations,
 	PacketSafePlayAnimationOptions,
+	RuntimeStyleAnimationIds,
 } from "./animation";
 import type { AttackLiterals } from "./attack";
 import type { PacketSafePlaySoundOptions } from "./audio";
@@ -22,7 +21,7 @@ export interface TogglePacket {
 }
 
 export interface AnimationReplicatorPacket {
-	readonly name: AnimationTrackNames;
+	readonly name: string;
 	readonly options: PacketSafePlayAnimationOptions;
 }
 export interface BlockPacket extends TogglePacket {}
@@ -31,13 +30,13 @@ export interface DashPacket extends TogglePacket {}
 export interface AnimationPacket {
 	combat: CombatAnimations;
 	movement: MovementAnimations;
-	style: ClientSafeStyleAnimations;
+	style: Record<string, Animation>;
 }
 
 export interface AnimationPacketResolved {
 	combat: Record<keyof CombatAnimations, string>;
 	movement: Record<keyof MovementAnimations, string>;
-	style: Record<keyof ClientSafeStyleAnimations, string>;
+	style: RuntimeStyleAnimationIds;
 }
 export interface PushPacket {
 	duration?: number;
@@ -55,4 +54,7 @@ export interface AttackPacket extends MetaType {
 	readonly name: AttackLiterals;
 	readonly options?: object;
 }
-export interface AssetPacket extends AnimationPacketResolved {}
+export interface AssetPacket extends AnimationPacketResolved {
+	selectedStyle: string;
+	selectedStance: string;
+}

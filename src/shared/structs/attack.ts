@@ -165,6 +165,18 @@ export interface AttackContext {
 	packet: AttackPacket;
 }
 
+export interface ClientHitboxWindow {
+	sessionId: string;
+	attackName: AttackLiterals;
+	startsAt: number;
+	endsAt: number;
+	cooldownEndsAt: number;
+	animationSpeed: number;
+	offset: CFrame;
+	size: Vector3;
+	animationName: string;
+}
+
 export interface StyleContext {
 	damage: StyleAttributeSpec;
 	speed: StyleAttributeSpec;
@@ -211,7 +223,7 @@ export interface LightData {
 export interface PostableWindowData {
 	window: HitWindow;
 	context: AttackContext;
-	hitbox: Hitbox;
+	hitbox?: Hitbox;
 }
 
 export interface CharacterAttackingHeaderData {

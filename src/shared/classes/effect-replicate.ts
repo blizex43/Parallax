@@ -13,6 +13,7 @@ import type { EffectPacket } from "shared/structs/packets";
 import { getClosestPlayers } from "shared/utility/instance";
 import { getInstanceAtPath } from "shared/utility/meta";
 import { isThrottled, now } from "shared/utility/time";
+import { EffectCatalog } from "shared/enums/effect-enum";
 
 abstract class VFXInfo {
 	protected readonly metadata: VFXMetadata = { lastEffectUsed: undefined, effectData: new Map() };
@@ -51,13 +52,10 @@ export abstract class VFXExtendable extends VFXInfo {
 		const throttlable = options.timeout;
 		const lastUsed = this.readEffect(name, "lastUsed");
 		if (throttlable && lastUsed && isThrottled(lastUsed, throttlable)) return;
-		const formatted = name.lower();
-
-		if (!(formatted in this.requiredModules)) {
-			return;
-		}
-
-		const effectClass = this.requiredModules[formatted];
+		const definition = EffectCatalog[name];
+		const effectClass =
+			(definition.handler && this.requiredModules[definition.handler]) ?? this.requiredModules["catalog-effect"];
+		if (!effectClass) return;
 
 		if (options.delay && run.IsClient()) {
 			task.wait(options.delay);
@@ -76,7 +74,7 @@ export abstract class VFXExtendable extends VFXInfo {
 		let instance: Maybe<StandardEffect>;
 
 		if (!options.deactivate || isClient) {
-			instance = new effectClass(options);
+			instance = new effectClass(options, name);
 			hostInstance[name] = instance;
 		} else if (options.deactivate) {
 			instance = hostInstance[name];
@@ -89,12 +87,26 @@ export abstract class VFXExtendable extends VFXInfo {
 		if (isServer) {
 			if (!options.deactivate) {
 				instance.Start(options.players);
+				this.playKeyframes(name, options);
 			} else {
 				this.callPropertyOfEffect(instance, options);
 			}
 		}
 		this.write("lastEffectUsed", name);
 		this.documentEffectInfo(name);
+	}
+
+	private playKeyframes(name: EffectName, options: PacketSafeEffectOptions): void {
+		for (const keyframe of EffectCatalog[name].keyframes ?? [])
+			task.delay(keyframe.at, () => {
+				const frameOptions = keyframe.options;
+				this.invokeSelf(keyframe.effect, {
+					...options,
+					...frameOptions,
+					character: frameOptions?.character ?? options.character,
+					players: frameOptions?.players ?? options.players,
+				});
+			});
 	}
 	protected callPropertyOfEffect(
 		instance: StandardEffect,

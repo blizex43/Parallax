@@ -12,11 +12,6 @@ export const BaseControlsEnum = <const>{
 		keys: ["MouseButton1"],
 	},
 
-	Cmdr: {
-		enum: "CmdrEnum",
-		keys: ["F2"],
-	},
-
 	Equip: {
 		enum: "EquipEnum",
 		keys: ["E"],

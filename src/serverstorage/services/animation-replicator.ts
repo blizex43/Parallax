@@ -4,7 +4,7 @@ import { Events } from "serverstorage/network";
 import { Replicator, SerializedReplicator } from "shared/classes/replicable";
 import type { LogStart } from "shared/hooks";
 import { Serializers } from "shared/network";
-import type { AnimationOffsets, AnimationTrackNames } from "shared/structs/animation";
+import type { AnimationOffsets } from "shared/structs/animation";
 import { getClosestPlayers } from "shared/utility/instance";
 
 @Service()
@@ -15,7 +15,7 @@ export class AnimationReplicatorService extends SerializedReplicator implements 
 
 	public replicate(
 		character: CharacterModel,
-		animName: AnimationTrackNames,
+		animName: string,
 		play: boolean = true,
 		stopOthers: boolean = true,
 		blacklist: CharacterModel[] = [character],
@@ -25,7 +25,6 @@ export class AnimationReplicatorService extends SerializedReplicator implements 
 		const possiblePlayers = !ignoreSpecificPlayers
 			? getClosestPlayers(character, Replicator.replicationOptions.range ?? 40, blacklist)
 			: Players.GetPlayers();
-		print(possiblePlayers);
 		if (possiblePlayers.size() === 0) return;
 		const serialized = Serializers.animation.serialize({
 			name: animName,

@@ -15,13 +15,14 @@ export class ConchService implements OnPlayerJoin, OnInit {
 
 	public register(): void {
 		Conch.initiate_default_lifecycle();
-		this.massSetRolePermissions();
 		this.massRegisterCommands();
+		this.massSetRolePermissions();
 	}
 
 	private massRegisterCommands(): void {
 		for (const [name, data] of pairs(ConchRegistry)) {
 			const { permissions, callback } = data;
+			print(permissions);
 			Conch.register(name, { permissions, arguments: <() => LuaTuple<Conch.Type[]>>data.arguments, callback });
 		}
 	}
@@ -36,7 +37,7 @@ export class ConchService implements OnPlayerJoin, OnInit {
 		const user = this.getUser(player);
 		const cachedGroups: Record<number, boolean> = {};
 		const cachedGroupRoles: Record<number, string> = {};
-		Conch.give_roles(user, "Visitor");
+		Conch.give_roles(user, "visitor");
 		for (const [role, data] of pairs(ConchRoleInformation)) {
 			if (
 				(data.userId && data.userId.includes(player.UserId)) ||
@@ -68,6 +69,7 @@ export class ConchService implements OnPlayerJoin, OnInit {
 					}
 				}
 		}
+		print(user)
 	}
 
 	private getUser(player: Player): Conch.User {

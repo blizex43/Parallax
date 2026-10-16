@@ -7,18 +7,20 @@ import type {
 	AnimationOffsets,
 	AnimationTrackComponentRecord,
 	AnimationTrackNames,
-	AnimationTrackRecord,
+	RuntimeAnimationTrackComponentRecord,
+	RuntimeAnimationTrackRecord,
 } from "shared/structs/animation";
 
 export abstract class TrackHandler {
 	public readonly initiatedPlayers: Player[] = [];
-	private readonly registered: Map<CharacterModel, AnimationTrackComponentRecord> = new Map();
-	public readonly onRegistered: Signal<(character: CharacterModel, tracks: AnimationTrackComponentRecord) => void> =
-		new Signal();
+	private readonly registered: Map<CharacterModel, RuntimeAnimationTrackComponentRecord> = new Map();
+	public readonly onRegistered: Signal<
+		(character: CharacterModel, tracks: RuntimeAnimationTrackComponentRecord) => void
+	> = new Signal();
 	public readonly onDeregistered: Signal<(character: CharacterModel) => void> = new Signal();
 	protected async registerCharacter(
 		character: CharacterModel,
-		tracks: AnimationTrackRecord,
+		tracks: RuntimeAnimationTrackRecord,
 	): Promise<typeof this.registered> {
 		return await this.register(character, tracks);
 	}
@@ -51,6 +53,22 @@ export abstract class TrackHandler {
 		}
 	}
 
+	public playAnimByName(
+		character: CharacterModel,
+		animName: string,
+		stopOthers: boolean = true,
+		offsets: AnimationOffsets = { speed: 1, fade: 1 },
+	): void {
+		const tracks = this.getTracks(character);
+		const track = tracks?.[animName];
+		if (!tracks || !track) return;
+		if (stopOthers) this.stopOtherRuntimeTracks(tracks, animName);
+		track
+			.modifyFade(this.getFade(animName) * (offsets.fade ?? 1))
+			.modifySpeed(offsets.speed ?? 1)
+			.play();
+	}
+
 	public adjustSpeed(character: CharacterModel, animName: AnimationTrackNames, speed: number) {
 		const tracks = this.getTracks(character);
 		if (!tracks) return;
@@ -80,14 +98,24 @@ export abstract class TrackHandler {
 	}
 
 	public getTrackNames(character: CharacterModel): Maybe<AnimationTrackNames[]> {
-		return Object.keys(<AnimationTrackComponentRecord>(this.getTracks(character) ?? {}));
+		return <AnimationTrackNames[]>this.getRuntimeTrackNames(character);
 	}
 
-	public getTracks(character: CharacterModel): Maybe<AnimationTrackComponentRecord> {
+	public getRuntimeTrackNames(character: CharacterModel): Maybe<string[]> {
+		return <string[]>Object.keys(this.getTracks(character) ?? {});
+	}
+
+	public getTracks(character: CharacterModel): Maybe<RuntimeAnimationTrackComponentRecord> {
 		return this.registered.get(character);
 	}
 
 	public getTrack(character: CharacterModel, name: AnimationTrackNames): Maybe<TrackComponent> {
+		const track = this.registered.get(character)?.[name];
+		if (!track || track.length() === 0) return;
+		return track;
+	}
+
+	public getTrackByName(character: CharacterModel, name: string): Maybe<TrackComponent> {
 		const track = this.registered.get(character)?.[name];
 		if (!track || track.length() === 0) return;
 		return track;
@@ -111,70 +139,85 @@ export abstract class TrackHandler {
 		}
 	}
 
-	private getGrade(animName: AnimationTrackNames): number {
-		return animationOverrides[animName]?.grade ?? OVERRIDES_TEMPLATE.grade;
+	private stopOtherRuntimeTracks(tracks: RuntimeAnimationTrackComponentRecord, animName: string): void {
+		for (const [name, track] of pairs(tracks)) {
+			if (name !== animName && track.playing()) track.stop();
+		}
 	}
 
-	private getSigmoidable(animName: AnimationTrackNames): boolean {
-		return animationOverrides[animName]?.acceptsSigmoid ?? OVERRIDES_TEMPLATE.acceptsSigmoid;
+	private getOverrideName(animName: string): AnimationTrackNames {
+		if (animName.sub(animName.size() - 4) === ":idle") return "style_idle";
+		if (animName.sub(animName.size() - 4) === ":walk") return "style_walk";
+		return <AnimationTrackNames>animName;
 	}
 
-	private getAutoStoppable(animName: AnimationTrackNames): boolean {
-		return animationOverrides[animName]?.autoStoppable ?? OVERRIDES_TEMPLATE.autoStoppable;
+	private getGrade(animName: AnimationTrackNames | string): number {
+		return animationOverrides[this.getOverrideName(animName)]?.grade ?? OVERRIDES_TEMPLATE.grade;
 	}
 
-	private getSpeed(animName: AnimationTrackNames): number {
-		return animationOverrides[animName]?.speed ?? OVERRIDES_TEMPLATE.speed;
+	private getSigmoidable(animName: AnimationTrackNames | string): boolean {
+		return animationOverrides[this.getOverrideName(animName)]?.acceptsSigmoid ?? OVERRIDES_TEMPLATE.acceptsSigmoid;
 	}
 
-	private getWeight(animName: AnimationTrackNames): number {
-		return animationOverrides[animName]?.weight ?? OVERRIDES_TEMPLATE.weight;
+	private getAutoStoppable(animName: AnimationTrackNames | string): boolean {
+		return animationOverrides[this.getOverrideName(animName)]?.autoStoppable ?? OVERRIDES_TEMPLATE.autoStoppable;
 	}
 
-	private getFade(animName: AnimationTrackNames): number {
-		return animationOverrides[animName]?.fade ?? OVERRIDES_TEMPLATE.fade;
+	private getSpeed(animName: AnimationTrackNames | string): number {
+		return animationOverrides[this.getOverrideName(animName)]?.speed ?? OVERRIDES_TEMPLATE.speed;
 	}
 
-	private getLerpFade(animName: AnimationTrackNames): number {
-		return animationOverrides[animName]?.lerpFade ?? OVERRIDES_TEMPLATE.lerpFade;
+	private getWeight(animName: AnimationTrackNames | string): number {
+		return animationOverrides[this.getOverrideName(animName)]?.weight ?? OVERRIDES_TEMPLATE.weight;
 	}
 
-	private getLoop(animName: AnimationTrackNames): boolean {
-		return animationOverrides[animName]?.loop ?? OVERRIDES_TEMPLATE.loop;
+	private getFade(animName: AnimationTrackNames | string): number {
+		return animationOverrides[this.getOverrideName(animName)]?.fade ?? OVERRIDES_TEMPLATE.fade;
 	}
 
-	private getPriority(animName: AnimationTrackNames): Enum.AnimationPriority {
-		return animationOverrides[animName]?.priority ?? OVERRIDES_TEMPLATE.priority;
+	private getLerpFade(animName: AnimationTrackNames | string): number {
+		return animationOverrides[this.getOverrideName(animName)]?.lerpFade ?? OVERRIDES_TEMPLATE.lerpFade;
+	}
+
+	private getLoop(animName: AnimationTrackNames | string): boolean {
+		return animationOverrides[this.getOverrideName(animName)]?.loop ?? OVERRIDES_TEMPLATE.loop;
+	}
+
+	private getPriority(animName: AnimationTrackNames | string): Enum.AnimationPriority {
+		return animationOverrides[this.getOverrideName(animName)]?.priority ?? OVERRIDES_TEMPLATE.priority;
 	}
 
 	private async deregister(
 		character: CharacterModel,
 		destroy: boolean,
-	): Promise<Map<CharacterModel, AnimationTrackComponentRecord>> {
+	): Promise<Map<CharacterModel, RuntimeAnimationTrackComponentRecord>> {
 		if (destroy) this.destroyTracks(this.getTracks(character));
 		this.registered.delete(character);
 		this.onDeregistered.Fire(character);
 		return this.registered;
 	}
 
-	private destroyTracks(tracks: Maybe<AnimationTrackComponentRecord>): void {
+	private destroyTracks(tracks: Maybe<RuntimeAnimationTrackComponentRecord>): void {
 		if (!tracks) return;
 		for (const track of Object.values(tracks)) track.onDestroy();
 	}
 
-	private async register(character: CharacterModel, tracks: AnimationTrackRecord): Promise<typeof this.registered> {
+	private async register(
+		character: CharacterModel,
+		tracks: RuntimeAnimationTrackRecord,
+	): Promise<typeof this.registered> {
 		const trackRecord = this.trackToComponent(tracks);
 		await this.initializeTracks(trackRecord);
-		const container = <AnimationTrackComponentRecord>this.getTracks(character) ?? {};
+		const container = <RuntimeAnimationTrackComponentRecord>this.getTracks(character) ?? {};
 		this.registered.set(character, this.overwriteContainerWithTracks(container, trackRecord));
 		this.onRegistered.Fire(character, trackRecord);
 		return this.registered;
 	}
 
 	private overwriteContainerWithTracks(
-		container: AnimationTrackComponentRecord,
-		tracks: AnimationTrackComponentRecord,
-	): AnimationTrackComponentRecord {
+		container: RuntimeAnimationTrackComponentRecord,
+		tracks: RuntimeAnimationTrackComponentRecord,
+	): RuntimeAnimationTrackComponentRecord {
 		for (const [name, track] of pairs(tracks)) {
 			if (name in container) {
 				container[name].onDestroy();
@@ -185,7 +228,7 @@ export abstract class TrackHandler {
 		return container;
 	}
 
-	private async initializeTracks(tracks: AnimationTrackComponentRecord): Promise<void> {
+	private async initializeTracks(tracks: RuntimeAnimationTrackComponentRecord): Promise<void> {
 		for (const [, track] of pairs(tracks)) await track.initialize();
 		for (const [name, track] of pairs(tracks))
 			track
@@ -197,8 +240,8 @@ export abstract class TrackHandler {
 				.modifySigmoidable(this.getSigmoidable(name));
 	}
 
-	private trackToComponent(tracks: AnimationTrackRecord): AnimationTrackComponentRecord {
-		const componentsRecord = <AnimationTrackComponentRecord>{};
+	private trackToComponent(tracks: RuntimeAnimationTrackRecord): RuntimeAnimationTrackComponentRecord {
+		const componentsRecord = <RuntimeAnimationTrackComponentRecord>{};
 		for (const [name, track] of pairs(tracks))
 			componentsRecord[name] = <TrackComponent>TrackComponent.create(track);
 

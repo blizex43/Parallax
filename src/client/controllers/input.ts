@@ -8,7 +8,6 @@ import { Cooldown } from "shared/decorators";
 import { BlockCooldown } from "shared/enums/block-enum";
 import { DefaultSprintStartInterval } from "shared/enums/sprint-enum";
 import { Events } from "client/network";
-import { CmdrClient } from "@rbxts/cmdr";
 export const enum ActionID {
 	LMB,
 	RMB,
@@ -64,11 +63,6 @@ export class InputController implements LogStart {
 	)
 	public block() {
 		StateEvents[CombatState.Block].Fire(true);
-	}
-
-	@OnInput(new StandardActionBuilder(...BaseControlsEnum.Cmdr.keys).setID(BaseControlsEnum.Cmdr.enum))
-	public cmdr() {
-		CmdrClient.Show();
 	}
 
 	/* Input Ends */
