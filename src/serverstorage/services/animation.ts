@@ -6,9 +6,14 @@ import { SpawnTask } from "shared/decorators";
 import { AssetService } from "./asset";
 import { isAssetId } from "shared/utility/strings";
 import { isNull } from "shared/utility/t-isA";
+import { OnNPCDestroyed, OnNPCMade } from "serverstorage/hooks";
+import { NPCType } from "shared/structs/npc";
 
 @Service()
-export class AnimationService extends TrackHandler implements OnCharacterAdd, OnCharacterRemove {
+export class AnimationService
+	extends TrackHandler
+	implements OnCharacterAdd, OnCharacterRemove, OnNPCMade, OnNPCDestroyed
+{
 	constructor(private readonly asset: AssetService) {
 		super();
 	}
@@ -19,6 +24,14 @@ export class AnimationService extends TrackHandler implements OnCharacterAdd, On
 	}
 	public async onCharacterRemove(character: CharacterModel): Promise<void> {
 		await this.deregisterCharacter(character);
+	}
+
+	public onNPCMade(npc: NPCType): void {
+		this.onCharacterAdd(npc.model);
+	}
+
+	public onNPCDestroyed(npc: NPCType): void {
+		this.onCharacterRemove(npc.model);
 	}
 
 	private loadIfValid(animator: Animator, animation: Animation): Maybe<AnimationTrack> {

@@ -3,7 +3,7 @@ import { AnimationService } from "./animation";
 import { AnimationTrackNames } from "shared/structs/animation";
 import { stringHas } from "shared/utility/strings";
 import { getRandomArrayValue } from "shared/utility/object";
-import { HitData } from "shared/structs/attack";
+import type { HitData } from "shared/structs/attack";
 
 @Service()
 export class DamageUtilService {
@@ -28,6 +28,7 @@ export class DamageUtilService {
 		const filtered = names.filter(
 			(name) => stringHas(name, context.attacker.data.style) && stringHas(name, "blockreact"),
 		);
+		print(filtered);
 		return filtered.size() > 0 ? getRandomArrayValue(filtered) : this.get_block_anim(character);
 	}
 
@@ -42,6 +43,7 @@ export class DamageUtilService {
 		const names = this.animation.getTrackNames(character);
 		if (!names) return;
 		const filtered = names.filter((name) => stringHas(name, "blockreact", 1));
+		print(filtered, names);
 		return getRandomArrayValue(filtered);
 	}
 

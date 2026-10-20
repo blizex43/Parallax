@@ -56,6 +56,7 @@ export const animationOverrides: AnimationPropertyOverridesEnum = {
 		loop: false,
 		grade: -3,
 		priority: Enum.AnimationPriority.Movement,
+		speed: 1.1,
 	},
 
 	clash1: {
@@ -73,6 +74,13 @@ export const animationOverrides: AnimationPropertyOverridesEnum = {
 	frontdash: {
 		grade: -3,
 		priority: Enum.AnimationPriority.Movement,
+		speed: 1.3,
+	},
+
+	frontdash2: {
+		grade: -3,
+		priority: Enum.AnimationPriority.Movement,
+		speed: 1.3,
 	},
 
 	rightdash: {
@@ -130,6 +138,32 @@ export const animationOverrides: AnimationPropertyOverridesEnum = {
 		grade: 3,
 		priority: Enum.AnimationPriority.Action3,
 	},
+
+	knockback2: {
+		grade: 3,
+		priority: Enum.AnimationPriority.Action3,
+		speed: 1.4,
+	},
+
+	dodge1: {
+		priority: Enum.AnimationPriority.Action,
+	},
+	dodge2: {
+		priority: Enum.AnimationPriority.Action,
+	},
+	dodge3: {
+		priority: Enum.AnimationPriority.Action,
+	},
+	dodge4: {
+		priority: Enum.AnimationPriority.Action,
+	},
+	dodge5: {
+		priority: Enum.AnimationPriority.Action,
+	},
+	dodge6: {
+		priority: Enum.AnimationPriority.Action,
+	},
+
 };
 export const movementAnimationLiterals = <const>[
 	"idle",
@@ -140,12 +174,19 @@ export const movementAnimationLiterals = <const>[
 	"dashcancelleft",
 	"dashcancelright",
 	"frontdash",
+	"frontdash2",
 	"leftdash",
 	"rightdash",
 	"backdash",
 ];
 
 export const combatAnimationLiterals = <const>[
+	"dodge1",
+	"dodge2",
+	"dodge3",
+	"dodge4",
+	"dodge5",
+	"dodge6",
 	"block",
 	"blockbroken1",
 	"blockbroken2",
@@ -158,6 +199,7 @@ export const combatAnimationLiterals = <const>[
 	"flinch3",
 	"gb",
 	"knockback1",
+	"knockback2",
 	"recover",
 	"clash1",
 	"clash2",

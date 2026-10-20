@@ -135,7 +135,7 @@ export class AssetService extends Preloader implements OnInit, OnCharacterAdd {
 		return {
 			combat: <Record<keyof CombatAnimations, string>>this.animationIds(animations.combat),
 			movement: <Record<keyof MovementAnimations, string>>this.animationIds(animations.movement),
-			style: this.animationIds(animations.style),
+			style: this.styleAnimationIds(animations.style),
 		};
 	}
 
@@ -143,6 +143,16 @@ export class AssetService extends Preloader implements OnInit, OnCharacterAdd {
 		const ids: Record<string, string> = {};
 		for (const [name, animation] of pairs(animations))
 			ids[name] = isAssetId(animation.AnimationId) ? animation.AnimationId : "rbxassetid://0";
+		return ids;
+	}
+
+	private styleAnimationIds(animations: Record<string, Animation>): AnimationPacketResolved["style"] {
+		const ids: AnimationPacketResolved["style"] = [];
+		for (const [name, animation] of pairs(animations))
+			ids.push({
+				name,
+				id: isAssetId(animation.AnimationId) ? animation.AnimationId : "rbxassetid://0",
+			});
 		return ids;
 	}
 

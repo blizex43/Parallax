@@ -59,7 +59,7 @@ export class DamageCalculateService {
 				: tree.blocked
 					? this.util.get_block_anim(context.attacked.character)
 					: context.properties.knockback?.type === "Super"
-						? this.util.get_knockback_anim(context.attacked.character)!
+						? this.util.get_knockback_anim(context.attacked.character)
 						: (this.util.get_flinch_anim(context.attacked.character) ?? "flinch1");
 	}
 }

@@ -64,6 +64,7 @@ export const enum CombatState {
 	FullStunned = "FullStunned",
 	HyperArmor = "HyperArmor",
 	Block = "Block",
+	Dodge = "Dodge",
 	Exhausted = "Exhausted",
 	Knocked = "Knocked",
 	Ragdoll = "Ragdoll",

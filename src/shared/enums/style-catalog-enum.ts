@@ -77,4 +77,23 @@ export const StyleCatalog: Record<Styles, StyleContext> = <const>{
 			included: ["Light", "Heavy"],
 		},
 	},
+	// kicks: the longest reach, a bit quicker, a little less damage / stun than Muay Thai
+	Taekwondo: {
+		damage: {
+			potency: 1.05,
+			included: ["Light", "Heavy"],
+		},
+		speed: {
+			potency: 1.1,
+			included: ["Light", "Heavy"],
+		},
+		range: {
+			potency: 1.2,
+			included: ["Light", "Heavy"],
+		},
+		stun: {
+			potency: 0.95,
+			included: ["Light", "Heavy"],
+		},
+	},
 };

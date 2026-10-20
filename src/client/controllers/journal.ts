@@ -8,7 +8,7 @@ import { AegisPorts } from "shared/enums/aegis-enum";
 import { GameStateCopy } from "shared/enums/journal-enum";
 import type { LogStart } from "shared/hooks";
 import type { JournalAegisSync } from "shared/structs/aegis";
-import { GameState } from "shared/structs/journal";
+import type { GameState } from "shared/structs/journal";
 @Controller()
 export class JournalController implements OnStart, LogStart {
 	private readonly journalAegis = new Aegis<JournalAegisSync>();

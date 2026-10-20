@@ -27,7 +27,6 @@ export type AnimationTrackComponentRecord = Record<AnimationTrackNames, TrackCom
 export type RuntimeAnimationTrackRecord = AnimationTrackRecord & Record<string, AnimationTrack>;
 export type RuntimeAnimationTrackComponentRecord = AnimationTrackComponentRecord & Record<string, TrackComponent>;
 export type RuntimeStyleAnimations = Record<string, Animation>;
-export type RuntimeStyleAnimationIds = Record<string, string>;
 export interface PacketSafePlayAnimationOptions {
 	offsets?: AnimationOffsets;
 	stopOthers?: boolean;

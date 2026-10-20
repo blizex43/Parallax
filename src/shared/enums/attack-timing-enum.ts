@@ -23,4 +23,8 @@ export const AttackTimingCatalog: Record<Styles, Record<AttackLiterals, AttackTi
 		Light: { windup: 0.1, active: 0.35 },
 		Heavy: { windup: 0.2, active: 0.45 },
 	},
+	Taekwondo: {
+		Light: { windup: 0.1, active: 0.35 },
+		Heavy: { windup: 0.2, active: 0.45 },
+	},
 };

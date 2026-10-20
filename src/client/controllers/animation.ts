@@ -66,10 +66,13 @@ export class AnimationController extends TrackHandler implements OnAssetLoad, On
 	}
 
 	private assetIdToAnimation(data: AssetPacket, force = true): AnimationPacket {
+		const styleIds: Record<string, string> = {};
+		for (const { name, id } of data.style) styleIds[name] = id;
+
 		return {
 			combat: <CombatAnimations>this.animationIdsToObjects(data.combat, this.animations.combat, force),
 			movement: <MovementAnimations>this.animationIdsToObjects(data.movement, this.animations.movement, force),
-			style: this.animationIdsToObjects(data.style, this.animations.style, force),
+			style: this.animationIdsToObjects(styleIds, this.animations.style, force),
 		};
 	}
 

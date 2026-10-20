@@ -1,10 +1,5 @@
 /* eslint-disable @typescript-eslint/no-empty-object-type */
-import type {
-	CombatAnimations,
-	MovementAnimations,
-	PacketSafePlayAnimationOptions,
-	RuntimeStyleAnimationIds,
-} from "./animation";
+import type { CombatAnimations, MovementAnimations, PacketSafePlayAnimationOptions } from "./animation";
 import type { AttackLiterals } from "./attack";
 import type { PacketSafePlaySoundOptions } from "./audio";
 import type { EffectName, PacketSafeEffectOptions } from "./effect";
@@ -36,7 +31,12 @@ export interface AnimationPacket {
 export interface AnimationPacketResolved {
 	combat: Record<keyof CombatAnimations, string>;
 	movement: Record<keyof MovementAnimations, string>;
-	style: RuntimeStyleAnimationIds;
+	style: StyleAnimationId[];
+}
+
+export interface StyleAnimationId {
+	name: string;
+	id: string;
 }
 export interface PushPacket {
 	duration?: number;

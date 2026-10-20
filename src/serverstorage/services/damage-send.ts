@@ -35,7 +35,7 @@ export class DamageSendService {
 		private readonly effect: VFXService,
 		private readonly clash: ClashService,
 		private readonly calculate: DamageCalculateService,
-	) { }
+	) {}
 	public send_animation(
 		context: HitData,
 		tree: DamageTree,
@@ -59,13 +59,7 @@ export class DamageSendService {
 			}
 
 		if (tree.blockBroken) {
-			util?.writeFor(
-				CombatState.BlockBroken,
-				true,
-				context.properties.breaker?.duration ?? 1.5,
-				false,
-				true,
-			);
+			util?.writeFor(CombatState.BlockBroken, true, context.properties.breaker?.duration ?? 1.5, false, true);
 		}
 	}
 
@@ -114,7 +108,7 @@ export class DamageSendService {
 		}
 	}
 
-	public send_sound() { }
+	public send_sound() {}
 
 	public send_combat_tag(context: HitData, tree: DamageTree) {
 		if ((tree.blocked && !tree.blockBroken) || tree.iframed) return;
@@ -145,13 +139,15 @@ export class DamageSendService {
 
 	public send_stun(context: HitData, tree: DamageTree): void {
 		if ((tree.blocked && !tree.blockBroken) || tree.iframed || tree.clashed) return;
-		this.journal.fetchUtil(context.attacked.character)?.writeFor(
-			context.properties.stun.type === "Normal" ? CombatState.Stunned : CombatState.FullStunned,
-			true,
-			tree.stun,
-			false,
-			true,
-		);
+		this.journal
+			.fetchUtil(context.attacked.character)
+			?.writeFor(
+				context.properties.stun.type === "Normal" ? CombatState.Stunned : CombatState.FullStunned,
+				true,
+				tree.stun,
+				false,
+				true,
+			);
 	}
 
 	public send_cancel(context: HitData, tree: DamageTree): void {

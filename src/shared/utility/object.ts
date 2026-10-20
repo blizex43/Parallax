@@ -1,7 +1,8 @@
 import { startsWith } from "@rbxts/string-utils";
 import { isObject, isString } from "./t-isA";
 import { JSON as json } from "shared/classes/json";
-export function getRandomArrayValue<T>(array: T[]): T {
+export function getRandomArrayValue<T>(array: T[]): Maybe<T> {
+	if (array.size() === 0) return;
 	return array[math.random(1, array.size()) - 1];
 }
 
