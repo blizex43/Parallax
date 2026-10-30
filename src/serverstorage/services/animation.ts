@@ -5,9 +5,8 @@ import { TrackHandler } from "shared/classes/tracks";
 import { SpawnTask } from "shared/decorators";
 import { AssetService } from "./asset";
 import { isAssetId } from "shared/utility/strings";
-import { isNull } from "shared/utility/t-isA";
 import { OnNPCDestroyed, OnNPCMade } from "serverstorage/hooks";
-import { NPCType } from "shared/structs/npc";
+import type { NPCType } from "shared/structs/npc";
 
 @Service()
 export class AnimationService
@@ -36,7 +35,8 @@ export class AnimationService
 
 	private loadIfValid(animator: Animator, animation: Animation): Maybe<AnimationTrack> {
 		const assetId = animation.AnimationId;
-		if (!isAssetId(assetId) || isNull(assetId.match("%d+"))) return;
+		const numericId = assetId.match("%d+")[0];
+		if (!isAssetId(assetId) || !numericId || (tonumber(numericId) ?? 0) <= 0) return;
 		const track = animator.LoadAnimation(animation);
 		for (const [attribute, value] of animation.GetAttributes()) track.SetAttribute(attribute, value);
 		return track;

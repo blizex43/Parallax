@@ -30,6 +30,7 @@ export interface GameState {
 			[CombatState.Windup]: boolean;
 			[CombatState.AttackExecutable]: Default<boolean, true>;
 			[CombatState.Attacking]: boolean;
+			[CombatState.Dodge]: boolean;
 			[CombatState.Stunned]: boolean;
 			[CombatState.Knocked]: boolean;
 			[CombatState.Ragdoll]: boolean;

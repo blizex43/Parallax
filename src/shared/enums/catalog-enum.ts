@@ -4,11 +4,11 @@ export const AttackCatalog: Record<AttackLiterals, AttackDefinition> = <const>{
 	Light: {
 		id: "Light",
 		tags: ["Melee"],
-		cooldown: 0.25,
+		cooldown: 0.12,
 		speed: 1,
 		phases: {
-			windup: 0.1,
-			recovery: 0.1,
+			windup: 0.08,
+			recovery: 0.08,
 		},
 		hitPolicy: {
 			hitOnce: true,
@@ -28,8 +28,8 @@ export const AttackCatalog: Record<AttackLiterals, AttackDefinition> = <const>{
 				onHit: {
 					damage: 3,
 					stun: {
-						duration: 1,
-						type: "Normal",
+						duration: 0.85,
+						type: "Full",
 					},
 					clash: {
 						priority: 1,
@@ -59,8 +59,8 @@ export const AttackCatalog: Record<AttackLiterals, AttackDefinition> = <const>{
 				onHit: {
 					damage: 3,
 					stun: {
-						duration: 1,
-						type: "Normal",
+						duration: 0.85,
+						type: "Full",
 					},
 					clash: {
 						priority: 1,
@@ -112,8 +112,8 @@ export const AttackCatalog: Record<AttackLiterals, AttackDefinition> = <const>{
 						priority: 2,
 					},
 					stun: {
-						duration: 1,
-						type: "Normal",
+						duration: 0.9,
+						type: "Full",
 					},
 					hitEffects: ["Light-Hit"],
 					knockback: {
@@ -123,6 +123,7 @@ export const AttackCatalog: Record<AttackLiterals, AttackDefinition> = <const>{
 						type: "Super",
 					},
 					breaker: {
+						tier: "Tier1",
 						duration: 1.4,
 					},
 				},

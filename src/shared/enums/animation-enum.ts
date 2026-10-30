@@ -34,6 +34,39 @@ export const animationOverrides: AnimationPropertyOverridesEnum = {
 		priority: Enum.AnimationPriority.Idle,
 		acceptsSigmoid: false,
 	},
+	style_walkback: {
+		grade: -4,
+		loop: true,
+		priority: Enum.AnimationPriority.Idle,
+		acceptsSigmoid: false,
+	},
+	style_walkleft: {
+		grade: -4,
+		loop: true,
+		priority: Enum.AnimationPriority.Idle,
+		acceptsSigmoid: false,
+	},
+	style_walkright: {
+		grade: -4,
+		loop: true,
+		priority: Enum.AnimationPriority.Idle,
+		acceptsSigmoid: false,
+	},
+	walkback: {
+		grade: -4,
+		loop: true,
+		priority: Enum.AnimationPriority.Idle,
+	},
+	walkleft: {
+		grade: -4,
+		loop: true,
+		priority: Enum.AnimationPriority.Idle,
+	},
+	walkright: {
+		grade: -4,
+		loop: true,
+		priority: Enum.AnimationPriority.Idle,
+	},
 	block: {
 		loop: true,
 		priority: Enum.AnimationPriority.Action2,
@@ -146,28 +179,31 @@ export const animationOverrides: AnimationPropertyOverridesEnum = {
 	},
 
 	dodge1: {
-		priority: Enum.AnimationPriority.Action,
+		priority: Enum.AnimationPriority.Movement,
 	},
 	dodge2: {
-		priority: Enum.AnimationPriority.Action,
+		priority: Enum.AnimationPriority.Movement,
 	},
 	dodge3: {
-		priority: Enum.AnimationPriority.Action,
+		priority: Enum.AnimationPriority.Movement,
 	},
 	dodge4: {
-		priority: Enum.AnimationPriority.Action,
+		priority: Enum.AnimationPriority.Movement,
 	},
 	dodge5: {
-		priority: Enum.AnimationPriority.Action,
+		priority: Enum.AnimationPriority.Movement,
 	},
 	dodge6: {
-		priority: Enum.AnimationPriority.Action,
+		priority: Enum.AnimationPriority.Movement,
 	},
 
 };
 export const movementAnimationLiterals = <const>[
 	"idle",
 	"walk",
+	"walkback",
+	"walkleft",
+	"walkright",
 	"sprint",
 	"dashcancelback",
 	"dashcancelfront",
@@ -180,13 +216,10 @@ export const movementAnimationLiterals = <const>[
 	"backdash",
 ];
 
+export const dodgeAnimationLiterals = <const>["dodge1", "dodge2", "dodge3", "dodge4", "dodge5", "dodge6"];
+
 export const combatAnimationLiterals = <const>[
-	"dodge1",
-	"dodge2",
-	"dodge3",
-	"dodge4",
-	"dodge5",
-	"dodge6",
+	...dodgeAnimationLiterals,
 	"block",
 	"blockbroken1",
 	"blockbroken2",
@@ -213,6 +246,15 @@ export const styleAnimationLiterals = <const>[
 	"light5",
 	"idle",
 	"walk",
+	"walkback",
+	"walkleft",
+	"walkright",
 	"heavy",
 ];
-export const styleClientSafeLiterals = <const>["style_idle", "style_walk"];
+export const styleClientSafeLiterals = <const>[
+	"style_idle",
+	"style_walk",
+	"style_walkback",
+	"style_walkleft",
+	"style_walkright",
+];

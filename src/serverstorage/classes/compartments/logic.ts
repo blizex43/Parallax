@@ -7,7 +7,7 @@ const decisionActions: Action[] = [
 		name: "Passive",
 		preconditions: { passive: true },
 		effects: { decided: true },
-		priority: 100,
+		priority: 90,
 	},
 	{
 		name: "Block",
@@ -18,14 +18,13 @@ const decisionActions: Action[] = [
 	{
 		name: "Attack",
 		preconditions: {
-			passive: false,
 			blocking: false,
 			targetPresent: true,
 			inAttackRange: true,
 			attackReady: true,
 		},
 		effects: { decided: true },
-		priority: 80,
+		priority: 110,
 	},
 	{
 		name: "Run",

@@ -12,5 +12,6 @@
 	"eslint.format.enable": true,
 	"typescript.tsdk": "node_modules/typescript/lib",
 	"typescript.enablePromptUseWorkspaceTsdk": true,
-	"js/ts.experimental.useTsgo": false
+	"js/ts.experimental.useTsgo": false,
+	"specstory.cloudSync.enabled": "always"
 }

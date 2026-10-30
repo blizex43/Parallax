@@ -6,25 +6,16 @@ interface AttackTiming {
 	active: number;
 }
 
+const StandardAttackTiming: Record<AttackLiterals, AttackTiming> = {
+	Light: { windup: 0.08, active: 0.3 },
+	Heavy: { windup: 0.18, active: 0.4 },
+};
+
 export const AttackTimingCatalog: Record<Styles, Record<AttackLiterals, AttackTiming>> = {
-	Base: {
-		Light: { windup: 0.1, active: 0.35 },
-		Heavy: { windup: 0.2, active: 0.45 },
-	},
-	Karate: {
-		Light: { windup: 0.1, active: 0.35 },
-		Heavy: { windup: 0.2, active: 0.45 },
-	},
-	"Muay Thai": {
-		Light: { windup: 0.1, active: 0.35 },
-		Heavy: { windup: 0.2, active: 0.45 },
-	},
-	Boxing: {
-		Light: { windup: 0.1, active: 0.35 },
-		Heavy: { windup: 0.2, active: 0.45 },
-	},
-	Taekwondo: {
-		Light: { windup: 0.1, active: 0.35 },
-		Heavy: { windup: 0.2, active: 0.45 },
-	},
+	Base: StandardAttackTiming,
+	Karate: StandardAttackTiming,
+	"Muay Thai": StandardAttackTiming,
+	Boxing: StandardAttackTiming,
+	Taekwondo: StandardAttackTiming,
+	Raishin: StandardAttackTiming,
 };

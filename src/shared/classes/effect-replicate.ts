@@ -55,7 +55,7 @@ export abstract class VFXExtendable extends VFXInfo {
 		const definition = EffectCatalog[name];
 		const effectClass =
 			(definition.handler && this.requiredModules[definition.handler]) ?? this.requiredModules["catalog-effect"];
-		if (!effectClass) return;
+		if (!effectClass) error(`No VFX handler is registered for "${name}".`);
 
 		if (options.delay && run.IsClient()) {
 			task.wait(options.delay);
@@ -113,14 +113,18 @@ export abstract class VFXExtendable extends VFXInfo {
 		options: PacketSafeEffectOptions,
 		property: "onRemote" = "onRemote",
 	) {
-		if (property in instance) pcall(() => instance[property]?.(options));
+		if (property in instance) instance[property]?.(options);
 	}
 
 	protected getAndPublishEffectFiles() {
-		for (const module of getChildrenOfType(getInstanceAtPath("src/shared/classes/effect-library")!, "ModuleScript"))
-			this.requiredModules[module.Name.lower()] = Object.values(
-				require<Record<string, EffectModule>>(module),
-			).shift()!;
+		for (const module of getChildrenOfType(
+			getInstanceAtPath("src/shared/classes/effect-library")!,
+			"ModuleScript",
+		)) {
+			const effectClass = Object.values(require<Record<string, EffectModule>>(module)).shift();
+			if (!effectClass) error(`VFX module "${module.Name}" does not export an effect class.`);
+			this.requiredModules[module.Name.lower()] = effectClass;
+		}
 	}
 
 	protected filterFromRadius(effectPacket: EffectPacket): Player[] {

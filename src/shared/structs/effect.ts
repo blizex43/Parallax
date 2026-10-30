@@ -68,7 +68,7 @@ export interface SoundSpec {
 export interface EffectContext {
 	particleReference: EffectSpec;
 	soundReference?: SoundSpec;
-	handler?: "footstep";
+	handler?: string;
 	keyframes?: EffectKeyframe[];
 }
 

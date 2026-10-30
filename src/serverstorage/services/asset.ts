@@ -200,6 +200,9 @@ export class AssetService extends Preloader implements OnInit, OnCharacterAdd {
 		const animations: RuntimeStyleAnimations = {
 			style_idle: stanceAnims.idle,
 			style_walk: stanceAnims.walk,
+			style_walkback: stanceAnims.walkback,
+			style_walkleft: stanceAnims.walkleft,
+			style_walkright: stanceAnims.walkright,
 		};
 		for (const [style, stances] of this.styleAnimations) {
 			const normalizedStyle = tostring(style).lower();

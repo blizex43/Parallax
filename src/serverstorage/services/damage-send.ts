@@ -167,7 +167,7 @@ export class DamageSendService {
 	}
 
 	public send_knockback(context: HitData, tree: DamageTree): void {
-		if (tree.blocked || tree.blockBroken || tree.iframed || tree.clashed) return;
+		if ((tree.blocked && !tree.blockBroken) || tree.iframed || tree.clashed) return;
 		if (tree.knockback && context.properties.knockback && !this.ragdoll.isRagdolled(context.attacked.character)) {
 			this.push.set(
 				context.attacked.character,

@@ -1,6 +1,6 @@
 import { Dependency } from "@flamework/core";
 import { $warn } from "rbxts-transform-debug";
-import { NpcService } from "serverstorage/services/npc";
+import { NpcService } from "serverstorage/services/npc-registry";
 import Log from "shared/log";
 import type { EntityCreationProperties, NPCPresetType } from "shared/structs/npc";
 import { capitalize } from "shared/utility/strings";

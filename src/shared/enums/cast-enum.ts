@@ -10,6 +10,8 @@ export const CastEnums: CastableEnum[] = <const>[
 			CombatState.Ragdoll,
 			CombatState.Stunned,
 			CombatState.FullStunned,
+			CombatState.Block,
+			CombatState.BlockBroken,
 			CombatState.Attacking,
 			CombatState.Recovery,
 			CombatState.Knocked,

@@ -1,14 +1,31 @@
 import { Controller } from "@flamework/core";
 import { HighlightComponent } from "client/components/character/highlight";
+import type {
+	HighlightProperties,
+	HighlightTweenOptions,
+	HighlightTweenProperties,
+} from "client/components/character/highlight";
 import { SuperJanitor } from "shared/classes/super-janitor";
-import { OnCharacterAdd, OnCharacterRemove } from "shared/hooks";
+import type { OnCharacterAdd, OnCharacterRemove } from "shared/hooks";
 
 @Controller()
 export class HighlightController implements OnCharacterRemove, OnCharacterAdd {
 	private readonly highlights: Map<CharacterModel, HighlightComponent> = new Map();
-	public apply(character: CharacterModel) {
-		const component = this.get(character, true)!;
+	public apply(character: CharacterModel, properties?: HighlightProperties): void {
+		const component = this.get(character, true);
+		if (!component) return;
+		if (properties) component.configure(properties);
 		if (!component.initiated) component.init();
+	}
+
+	public tween(
+		character: CharacterModel,
+		properties: HighlightTweenProperties,
+		options: HighlightTweenOptions | number = 0,
+	): Maybe<Tween> {
+		const component = this.get(character);
+		if (!component) return;
+		return component.tween(properties, options);
 	}
 
 	public lerpColor(
@@ -18,24 +35,23 @@ export class HighlightController implements OnCharacterRemove, OnCharacterAdd {
 		property: "FillColor" | "OutlineColor" = "FillColor",
 		reverseDelay?: number,
 		reverseDelayValue?: Color3,
-	) {
+	): Maybe<Tween> {
 		const component = this.get(character);
-		if (component) {
-			const promise = component.lerpColor(color, duration, property);
-			SuperJanitor.set(`${character.Name}_Highlight_Color`, promise);
-			if (reverseDelay && reverseDelayValue)
-				SuperJanitor.set(
-					`${character.Name}_Highlight_Color_Reverse`,
-					() =>
-						promise.getStatus() === "Resolved" &&
-						promise === component.colorPromise &&
-						component.lerpColor(reverseDelayValue, duration, property),
-					reverseDelay,
-				);
-		}
+		if (!component) return;
+		const tween = component.tweenColor(color, duration, property);
+		SuperJanitor.set(`${character.Name}_Highlight_Color`, tween);
+		if (reverseDelay !== undefined && reverseDelayValue !== undefined)
+			SuperJanitor.set(
+				`${character.Name}_Highlight_Color_Reverse`,
+				() =>
+					tween.PlaybackState === Enum.PlaybackState.Completed &&
+					component.tweenColor(reverseDelayValue, duration, property),
+				reverseDelay,
+			);
+		return tween;
 	}
 
-	public async lerpTransparency(
+	public lerpTransparency(
 		character: CharacterModel,
 		transparency: number,
 		duration: number = 0,
@@ -43,25 +59,24 @@ export class HighlightController implements OnCharacterRemove, OnCharacterAdd {
 		rememberExisting?: boolean,
 		reverseDelay?: number,
 		reverseDelayValue?: number,
-	) {
+	): Maybe<Tween> {
 		if (rememberExisting) {
 			const existing = SuperJanitor.get(`${character.Name}_Highlight_Transparency`);
 			if (existing) return;
 		}
 		const component = this.get(character);
-		if (component) {
-			const promise = component.lerpTransparency(transparency, duration, property);
-			SuperJanitor.set(`${character.Name}_Highlight_Transparency`, promise);
-			if (reverseDelay && reverseDelayValue)
-				SuperJanitor.set(
-					`${character.Name}_Highlight_Transparency_Reverse`,
-					() =>
-						promise.getStatus() === "Resolved" &&
-						promise === component.transparencyPromise &&
-						component.lerpTransparency(reverseDelayValue, duration, property),
-					reverseDelay,
-				);
-		}
+		if (!component) return;
+		const tween = component.tweenTransparency(transparency, duration, property);
+		SuperJanitor.set(`${character.Name}_Highlight_Transparency`, tween);
+		if (reverseDelay !== undefined && reverseDelayValue !== undefined)
+			SuperJanitor.set(
+				`${character.Name}_Highlight_Transparency_Reverse`,
+				() =>
+					tween.PlaybackState === Enum.PlaybackState.Completed &&
+					component.tweenTransparency(reverseDelayValue, duration, property),
+				reverseDelay,
+			);
+		return tween;
 	}
 
 	public get(character: CharacterModel, force: boolean = false): Maybe<HighlightComponent> {
@@ -84,5 +99,6 @@ export class HighlightController implements OnCharacterRemove, OnCharacterAdd {
 	public onCharacterRemove(character: CharacterModel): void {
 		const highlight = this.get(character);
 		if (highlight) highlight.onDestroy();
+		this.highlights.delete(character);
 	}
 }

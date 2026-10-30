@@ -17,7 +17,7 @@ export interface PsuedoPlayerData {
 	readonly pants: DataType.u8;
 	readonly height: DataType.u8;
 	readonly impulse: DataType.u16;
-	readonly intellect: DataType.u16;
+	readonly intelligence: DataType.u16;
 	readonly strength: DataType.u16;
 	readonly stamina: DataType.u16;
 	readonly agility: DataType.u16;
@@ -104,7 +104,7 @@ export const INITIAL_PSUEDO_DATA: PsuedoPlayerData = {
 	pants: 15704759627,
 	height: 1,
 	impulse: 0,
-	intellect: 0,
+	intelligence: 0,
 	strength: 0,
 	stamina: 0,
 	agility: 0,
@@ -155,7 +155,7 @@ export const INITIAL_DATA: PlayerData = {
 	styleExp: 0,
 	hunger: 100,
 	impulse: 0,
-	intellect: 0,
+	intelligence: 0,
 	strength: 0,
 	stamina: 0,
 	jailTime: 0,

@@ -1,5 +1,5 @@
 import type { PlayerData, PlayerDataKeys } from "shared/data-models/player-data";
-import { MaxStatsScaled, ScaleMultipliers } from "shared/enums/scale-enum";
+import { StatTuning } from "shared/enums/scale-enum";
 import { CharacterDependency } from "shared/structs/linked-dependency";
 import { scaleNumberWithPer } from "shared/utility/numbers";
 interface ScaleDependencies {
@@ -57,7 +57,7 @@ export class ScaleDependency implements CharacterDependency {
 		for (const part of parts) {
 			if (!part) continue;
 
-			const base = part.GetAttribute("DefaultSize") as Vector3;
+			const base = <Vector3>part.GetAttribute("DefaultSize");
 			part.Size = new Vector3(base.X, base.Y * height, base.Z);
 		}
 
@@ -106,55 +106,55 @@ export class ScaleDependency implements CharacterDependency {
 
 		const fatFactor = scaleNumberWithPer(
 			data.fat,
-			MaxStatsScaled.fat,
-			ScaleMultipliers.Fat,
+			StatTuning.cap.fat,
+			StatTuning.characterScale.fat,
 			0,
-			MaxStatsScaled.fat,
+			StatTuning.cap.fat,
 			true,
 		);
 
 		const leanUpperFactor = scaleNumberWithPer(
 			data.muscle.upper,
-			MaxStatsScaled.upperBodyMuscle,
-			ScaleMultipliers.Muscle * 9,
+			StatTuning.cap.upperBodyMuscle,
+			StatTuning.characterScale.muscle * 9,
 			120,
-			MaxStatsScaled.upperBodyMuscle,
+			StatTuning.cap.upperBodyMuscle,
 			true,
 		);
 
 		const leanLowerFactor = scaleNumberWithPer(
 			data.muscle.lower,
-			MaxStatsScaled.lowerBodyMuscle,
-			ScaleMultipliers.Muscle * 9,
+			StatTuning.cap.lowerBodyMuscle,
+			StatTuning.characterScale.muscle * 9,
 			120,
-			MaxStatsScaled.lowerBodyMuscle,
+			StatTuning.cap.lowerBodyMuscle,
 			true,
 		);
 		const upperFactor =
 			scaleNumberWithPer(
 				data.muscle.upper,
-				MaxStatsScaled.upperBodyMuscle,
-				ScaleMultipliers.Muscle,
+				StatTuning.cap.upperBodyMuscle,
+				StatTuning.characterScale.muscle,
 				120,
-				MaxStatsScaled.upperBodyMuscle,
+				StatTuning.cap.upperBodyMuscle,
 				true,
 			) + leanUpperFactor;
 
 		const lowerFactor =
 			scaleNumberWithPer(
 				data.muscle.lower,
-				MaxStatsScaled.lowerBodyMuscle,
-				ScaleMultipliers.Muscle,
+				StatTuning.cap.lowerBodyMuscle,
+				StatTuning.characterScale.muscle,
 				120,
-				MaxStatsScaled.lowerBodyMuscle,
+				StatTuning.cap.lowerBodyMuscle,
 				true,
 			) + leanLowerFactor;
 
-		const heightFactor = scaleNumberWithPer(data.height - 1, 1, ScaleMultipliers.Height, 0, 1, true);
+		const heightFactor = scaleNumberWithPer(data.height - 1, 1, StatTuning.characterScale.height, 0, 1, true);
 
 		if (torso) {
-			const base = torso.GetAttribute("DefaultSize") as Vector3;
-			const scale = ScaleMultipliers.Base + upperFactor / 5 + fatFactor + heightFactor;
+			const base = <Vector3>torso.GetAttribute("DefaultSize");
+			const scale = StatTuning.characterScale.base + upperFactor / 5 + fatFactor + heightFactor;
 
 			torso.Size = new Vector3(base.X * scale, torso.Size.Y, base.Z * scale);
 		}
@@ -162,8 +162,8 @@ export class ScaleDependency implements CharacterDependency {
 		for (const arm of [leftArm, rightArm]) {
 			if (!arm) continue;
 
-			const base = arm.GetAttribute("DefaultSize") as Vector3;
-			const scale = ScaleMultipliers.Base + upperFactor + fatFactor + heightFactor;
+			const base = <Vector3>arm.GetAttribute("DefaultSize");
+			const scale = StatTuning.characterScale.base + upperFactor + fatFactor + heightFactor;
 
 			arm.Size = new Vector3(base.X * scale, arm.Size.Y, base.Z * scale);
 
@@ -173,8 +173,8 @@ export class ScaleDependency implements CharacterDependency {
 		for (const leg of [leftLeg, rightLeg]) {
 			if (!leg) continue;
 
-			const base = leg.GetAttribute("DefaultSize") as Vector3;
-			const scale = ScaleMultipliers.Base + lowerFactor + fatFactor + heightFactor;
+			const base = <Vector3>leg.GetAttribute("DefaultSize");
+			const scale = StatTuning.characterScale.base + lowerFactor + fatFactor + heightFactor;
 
 			leg.Size = new Vector3(base.X * scale, leg.Size.Y, base.Z * scale);
 
@@ -187,16 +187,16 @@ export class ScaleDependency implements CharacterDependency {
 	private adjustArmJoints(arm: BasePart, torso?: BasePart) {
 		if (!torso) return;
 
-		const armBase = arm.GetAttribute("DefaultSize") as Vector3;
-		const torsoBase = torso.GetAttribute("DefaultSize") as Vector3;
+		const armBase = <Vector3>arm.GetAttribute("DefaultSize");
+		const torsoBase = <Vector3>torso.GetAttribute("DefaultSize");
 
 		const armDelta = (arm.Size.X - armBase.X) / 2;
 		const torsoDelta = (torso.Size.X - torsoBase.X) / 2;
 
 		const offset = armDelta + torsoDelta;
 
-		const left = torso.FindFirstChild("Left Shoulder") as Maybe<Motor6D>;
-		const right = torso.FindFirstChild("Right Shoulder") as Maybe<Motor6D>;
+		const left = torso.FindFirstChild<Motor6D>("Left Shoulder");
+		const right = torso.FindFirstChild<Motor6D>("Right Shoulder");
 
 		if (left) this.offsetJointX(left, offset, -1);
 		if (right) this.offsetJointX(right, offset, 1);
@@ -205,18 +205,18 @@ export class ScaleDependency implements CharacterDependency {
 	private adjustLegJoints(leg: BasePart, torso?: BasePart) {
 		if (!torso) return;
 
-		const legBase = leg.GetAttribute("DefaultSize") as Vector3;
+		const legBase = <Vector3>leg.GetAttribute("DefaultSize");
 		const delta = (leg.Size.X - legBase.X) / 2;
 
-		const left = torso.FindFirstChild("Left Hip") as Maybe<Motor6D>;
-		const right = torso.FindFirstChild("Right Hip") as Maybe<Motor6D>;
+		const left = torso.FindFirstChild<Motor6D>("Left Hip");
+		const right = torso.FindFirstChild<Motor6D>("Right Hip");
 
 		if (left) this.offsetJointX(left, delta, -1);
 		if (right) this.offsetJointX(right, delta, 1);
 	}
 
 	private offsetJointX(motor: Motor6D, offset: number, direction: number) {
-		let baseC0 = motor.GetAttribute("DefaultC0") as Maybe<CFrame>;
+		let baseC0 = <Maybe<CFrame>>motor.GetAttribute("DefaultC0");
 
 		if (!baseC0) {
 			baseC0 = motor.C0;

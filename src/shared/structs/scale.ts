@@ -36,11 +36,19 @@ export interface ScalingDependencies {
 	strength: number;
 	vigor: number;
 	stamina: number;
-	intellect: number;
+	intelligence: number;
 	agility: number;
 	upperBodyMuscle: number;
 	lowerBodyMuscle: number;
 	fat: number;
+}
+export interface StatScaleOptions {
+	per?: number;
+	increment?: number;
+	minimum?: number;
+	maximum?: number;
+	trueScale?: boolean;
+	startValue?: number;
 }
 export interface MakeshiftParams {
 	manual?: ScalingDependencies;

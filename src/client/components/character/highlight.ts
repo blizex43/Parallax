@@ -1,26 +1,40 @@
 import { Component, Components } from "@flamework/components";
 import { Dependency, type OnStart } from "@flamework/core";
-import Lerps from "@rbxts/lerp-functions";
-import { RunService as Run } from "@rbxts/services";
+import { TweenService } from "@rbxts/services";
 import { $nameof } from "rbxts-transform-debug";
 import InstanceExtendable from "shared/base-components/instance";
 import { HighlightInstanceEnum } from "shared/enums/highlight-enum";
 import type { OnCharacterRemove } from "shared/hooks";
 import { Create } from "shared/utility/instance";
+
 type Attributes = typeof HighlightInstanceEnum;
-const { clamp } = math;
+export type HighlightProperties = Partial<
+	Pick<Highlight, "FillColor" | "OutlineColor" | "FillTransparency" | "OutlineTransparency" | "DepthMode">
+>;
+export type HighlightTweenProperties = Partial<
+	Pick<Highlight, "FillColor" | "OutlineColor" | "FillTransparency" | "OutlineTransparency">
+>;
+
+export interface HighlightTweenOptions {
+	duration?: number;
+	easingStyle?: Enum.EasingStyle;
+	easingDirection?: Enum.EasingDirection;
+	repeatCount?: number;
+	reverses?: boolean;
+	delayTime?: number;
+}
 
 @Component({
 	tag: $nameof<HighlightComponent>(),
 	defaults: HighlightInstanceEnum,
 })
-export class HighlightComponent<H extends Highlight = Highlight>
-	extends InstanceExtendable<Attributes, H>
+export class HighlightComponent
+	extends InstanceExtendable<Attributes, Highlight>
 	implements OnStart, OnCharacterRemove
 {
-	public readonly initiated: boolean = false;
-	public colorPromise: Maybe<Promise<void>>;
-	public transparencyPromise: Maybe<Promise<void>>;
+	public initiated = false;
+	private readonly propertyTweens = new Map<string, Tween>();
+
 	public onStart(): void {
 		super.onStart(false);
 		this.addToCleanup(this.instance);
@@ -30,79 +44,70 @@ export class HighlightComponent<H extends Highlight = Highlight>
 		this.onDestroy();
 	}
 
-	public init() {
+	public init(): void {
 		this.parentToCharacter();
-		this.publishInit();
+		this.initiated = true;
 	}
 
-	public lerpColor(
-		color: Color3,
-		duration: number,
-		property: "FillColor" | "OutlineColor" = "FillColor",
-	): Promise<void> {
-		this.overwriteColor();
-		const initialValue = this.instance[property];
-		const lerpFunc = Lerps.Color3(initialValue, color);
-		return (this.colorPromise = this.giveLerpPromise(lerpFunc, duration, property));
+	public configure(properties: HighlightProperties): void {
+		if (properties.FillColor !== undefined) this.instance.FillColor = properties.FillColor;
+		if (properties.OutlineColor !== undefined) this.instance.OutlineColor = properties.OutlineColor;
+		if (properties.FillTransparency !== undefined) this.instance.FillTransparency = properties.FillTransparency;
+		if (properties.OutlineTransparency !== undefined)
+			this.instance.OutlineTransparency = properties.OutlineTransparency;
+		if (properties.DepthMode !== undefined) this.instance.DepthMode = properties.DepthMode;
 	}
 
-	public lerpTransparency(
+	public tween(properties: HighlightTweenProperties, options: HighlightTweenOptions | number = 0): Tween {
+		const tweenOptions = typeIs(options, "number") ? { duration: options } : options;
+		const allKeys = <const>["FillColor", "OutlineColor", "FillTransparency", "OutlineTransparency"];
+		const keys = allKeys.filter((key) => properties[key] !== undefined);
+		for (const key of keys) this.propertyTweens.get(key)?.Cancel();
+
+		const tween = TweenService.Create(
+			this.instance,
+			new TweenInfo(
+				tweenOptions.duration ?? 0,
+				tweenOptions.easingStyle ?? Enum.EasingStyle.Quad,
+				tweenOptions.easingDirection ?? Enum.EasingDirection.Out,
+				tweenOptions.repeatCount ?? 0,
+				tweenOptions.reverses ?? false,
+				tweenOptions.delayTime ?? 0,
+			),
+			properties,
+		);
+
+		for (const key of keys) this.propertyTweens.set(key, tween);
+		this.addToCleanup(
+			tween.Completed.Connect(() => {
+				for (const key of keys) if (this.propertyTweens.get(key) === tween) this.propertyTweens.delete(key);
+			}),
+		);
+		this.addToCleanup(tween);
+		tween.Play();
+		return tween;
+	}
+
+	public tweenColor(color: Color3, duration: number, property: "FillColor" | "OutlineColor" = "FillColor"): Tween {
+		return this.tween(property === "FillColor" ? { FillColor: color } : { OutlineColor: color }, { duration });
+	}
+
+	public tweenTransparency(
 		transparency: number,
 		duration: number,
 		property: "FillTransparency" | "OutlineTransparency" = "FillTransparency",
-	): Promise<void> {
-		this.overwriteTransparency();
-		const initialValue = this.instance[property];
-		const lerpFunc = Lerps.number(initialValue, transparency);
-		return (this.transparencyPromise = this.giveLerpPromise(lerpFunc, duration, property));
-	}
-
-	public overwriteColor(): void {
-		if (this.colorPromise && this.colorPromise.getStatus() === "Started") this.colorPromise.cancel();
-	}
-
-	public overwriteTransparency(): void {
-		if (this.transparencyPromise && this.transparencyPromise.getStatus() === "Started")
-			this.transparencyPromise.cancel();
+	): Tween {
+		return this.tween(
+			property === "FillTransparency"
+				? { FillTransparency: transparency }
+				: { OutlineTransparency: transparency },
+			{ duration },
+		);
 	}
 
 	private parentToCharacter(): void {
 		const reference = this.instance.FindFirstChild<ObjectValue>("Reference")!;
 		this.instance.Parent = reference.Value;
-	}
-
-	private giveLerpPromise<T>(
-		lerpFunc: (alpha: T) => unknown,
-		duration: number,
-		property: "FillTransparency" | "OutlineTransparency" | "FillColor" | "OutlineColor",
-	): Promise<void> {
-		return new Promise((resolve, _, onCancel) => {
-			const started = os.clock();
-			let cancelled = false;
-
-			onCancel(() => {
-				cancelled = true;
-			});
-
-			const step = () => {
-				if (cancelled) return;
-
-				const alpha = clamp((os.clock() - started) / duration, 0, 1);
-				this.instance[property] = <never>lerpFunc(<T>(<unknown>alpha));
-				if (alpha < 1) {
-					Run.RenderStepped.Wait();
-					step();
-				} else {
-					resolve();
-				}
-			};
-
-			step();
-		});
-	}
-
-	private publishInit(this: Writable<HighlightComponent>) {
-		if (!this.initiated) this.initiated = true;
 	}
 
 	public static create(character: CharacterModel): HighlightComponent {
@@ -113,7 +118,7 @@ export class HighlightComponent<H extends Highlight = Highlight>
 		);
 	}
 
-	public static addReference(highlight: Highlight, character: CharacterModel) {
+	public static addReference(highlight: Highlight, character: CharacterModel): ObjectValue {
 		return Create("ObjectValue", "Reference", highlight, (obj) => {
 			obj.Value = character;
 		});

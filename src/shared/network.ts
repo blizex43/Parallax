@@ -41,6 +41,7 @@ interface ServerEvents {
 		block: SerializedRemote;
 		sprint: SerializedRemote;
 		dash: SerializedRemote;
+		dodge(): void;
 	};
 	readonly effect: {
 		replicate: SerializedRemote;
@@ -82,6 +83,7 @@ interface ClientEvents {
 			): void;
 			finish(sessionId: string): void;
 		};
+		dodgeReset(cancel: boolean): void;
 	};
 	readonly camera: {
 		screenshake: SerializedRemote;

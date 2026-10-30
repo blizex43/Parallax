@@ -12,6 +12,7 @@ import { promisifyEvent } from "shared/utility/promises";
 import { Create } from "shared/utility/instance";
 import { Player } from "client/utility";
 import { isString } from "shared/utility/t-isA";
+import { isAssetId } from "shared/utility/strings";
 @Controller()
 export class AnimationController extends TrackHandler implements OnAssetLoad, OnCharacterLoaded, OnCharacterRemove {
 	public readonly animations = <AnimationPacket>{};
@@ -83,6 +84,8 @@ export class AnimationController extends TrackHandler implements OnAssetLoad, On
 	): Record<string, Animation> {
 		const animations: Record<string, Animation> = {};
 		for (const [name, animId] of pairs(ids)) {
+			const numericId = animId.match("%d+")[0];
+			if (!isAssetId(animId) || !numericId || (tonumber(numericId) ?? 0) <= 0) continue;
 			const host = existing?.[name];
 			if (!force && host && host.AnimationId === animId) {
 				animations[name] = host;

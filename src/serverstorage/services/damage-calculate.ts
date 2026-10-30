@@ -3,20 +3,22 @@ import type { PsuedoPlayerData } from "shared/data-models/player-data";
 import { baseCombatTagDuration } from "shared/enums/damage-enum";
 import type { AilmentSpec, HitData } from "shared/structs/attack";
 import type { DamageTree } from "shared/structs/damage";
-import { flatten } from "shared/utility/vector";
 import { DamageUtilService } from "./damage-util";
 import { AnimationTrackNames } from "shared/structs/animation";
+import type { AnomalyService } from "./anomaly";
 
 @Service()
 export class DamageCalculateService {
-	constructor(private readonly util: DamageUtilService) {}
+	constructor(
+		private readonly util: DamageUtilService,
+		private readonly anomaly: AnomalyService,
+	) {}
 	public calculate_damage(context: HitData, data: PsuedoPlayerData): number {
-		const damage = context.properties.damage;
-		return damage;
+		return context.properties.damage * this.anomaly.getIncomingDamageMultiplier(context.attacked.character);
 	}
 
 	public calculate_stun(context: HitData, data: PsuedoPlayerData): number {
-		return context.properties.stun.duration;
+		return context.properties.stun.duration * this.anomaly.getOutgoingStunMultiplier(context.attacker.character);
 	}
 
 	public calculate_ailments(context: HitData): AilmentSpec[] {
@@ -35,20 +37,18 @@ export class DamageCalculateService {
 		if (!attackerRoot || !attackedRoot) return;
 
 		let worldDir = attackedRoot.Position.sub(attackerRoot.Position);
-
-		worldDir = flatten(worldDir);
+		worldDir = new Vector3(worldDir.X, 0, worldDir.Z);
 
 		if (worldDir.Magnitude < 3) {
 			const look = attackerRoot.CFrame.LookVector;
-			worldDir = flatten(look);
+			worldDir = new Vector3(look.X, 0, look.Z);
 		}
 
-		if (worldDir.Magnitude === 0) return;
+		if (worldDir.Magnitude < 0.001) return;
 
 		worldDir = worldDir.Unit;
 		const localDir = attackedRoot.CFrame.VectorToObjectSpace(worldDir);
-
-		return flatten(localDir);
+		return new Vector3(localDir.X, 0, localDir.Z).Unit;
 	}
 
 	public calculate_flinch(context: HitData, tree: DamageTree): Maybe<AnimationTrackNames> {

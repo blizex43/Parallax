@@ -18,6 +18,7 @@ interface NeuralContext {
 	humanoid: Humanoid;
 	memories: Memories;
 	target?: BasePart;
+	distance: number;
 	lightReady: boolean;
 	heavyReady: boolean;
 }
@@ -27,8 +28,8 @@ export class Neurons {
 		Idle: (context) => this.handleStopped(context),
 		Walk: (context) => this.handleMovement(context, 1),
 		Run: (context) => this.handleMovement(context, 1.5),
-		Passive: (context) => this.handleStopped(context),
-		Aggressive: (context) => this.handleMovement(context, 1),
+		Passive: (context) => this.handlePassive(context),
+		Aggressive: (context) => this.handleAggressive(context),
 		Block: (context) => this.handleBlocking(context),
 		Attack: (context) => this.handleAttack(context),
 	};
@@ -56,31 +57,44 @@ export class Neurons {
 		const humanoid = model.Humanoid;
 		if (!memories || !root || !humanoid || humanoid.Health <= 0) return;
 
+		const target = this.findClosestPlayer(model, root.Position);
+		const distance = target ? target.Position.sub(root.Position).Magnitude : math.huge;
 		const cooldowns = this.journal.fetchStateValue<Record<string, { end: number }>>(model, CombatState.Cooldowns);
+		const blockedStates = [
+			CombatState.Windup,
+			CombatState.Recovery,
+			CombatState.Attacking,
+			CombatState.Block,
+			CombatState.BlockBroken,
+			CombatState.Stunned,
+			CombatState.FullStunned,
+			CombatState.Exhausted,
+			CombatState.Knocked,
+			CombatState.Ragdoll,
+		];
 		const canAttack =
 			!this.attack.getRunningMeta(model).attacking &&
-			!this.journal.fetchStateValue<boolean>(model, CombatState.Stunned) &&
-			!this.journal.fetchStateValue<boolean>(model, CombatState.FullStunned);
+			blockedStates.every((state) => !this.journal.fetchStateValue<boolean>(model, state));
 		return {
 			model,
 			root,
 			humanoid,
 			memories,
-			target: this.findClosestPlayer(model, root.Position),
+			target,
+			distance,
 			lightReady: canAttack && (!cooldowns?.Light || cooldowns.Light.end <= os.clock()),
 			heavyReady: canAttack && (!cooldowns?.Heavy || cooldowns.Heavy.end <= os.clock()),
 		};
 	}
 
 	private toFacts(context: NeuralContext) {
-		const distance = context.target ? context.target.Position.sub(context.root.Position).Magnitude : math.huge;
 		return {
 			targetPresent: context.target !== undefined,
-			inAttackRange: distance <= attackRange,
+			inAttackRange: context.distance <= attackRange,
 			attackReady: context.lightReady || context.heavyReady,
 			passive: context.memories.behavior === "passive",
 			blocking: context.memories.preset === "blocking-dummy",
-			canRun: context.memories.mastery !== "easy" && distance >= runRange,
+			canRun: context.memories.mastery !== "easy" && context.distance >= runRange,
 		};
 	}
 
@@ -102,6 +116,39 @@ export class Neurons {
 			context.heavyReady,
 		);
 		if (attack) this.attack.onServerAttackInvoked(context.model, attack);
+	}
+
+	private handleAggressive(context: NeuralContext): void {
+		if (context.distance <= attackRange + 1) return this.handleStopped(context);
+		this.handleMovement(context, 1);
+	}
+
+	private handlePassive(context: NeuralContext): void {
+		this.block.handleBlock(context.model, false);
+		const target = context.target;
+		if (!target) return this.handleStopped(context);
+
+		this.brain.pathing.stop();
+		const difference = target.Position.sub(context.root.Position);
+		const flatDifference = new Vector3(difference.X, 0, difference.Z);
+		if (flatDifference.Magnitude < 0.001) return context.humanoid.Move(Vector3.zero);
+
+		const towardTarget = flatDifference.Unit;
+		const aroundTarget = new Vector3(-towardTarget.Z, 0, towardTarget.X);
+		const phase = os.clock();
+		const radial =
+			context.distance > runRange
+				? 1
+				: context.distance > attackRange + 2
+					? 0.4 + math.sin(phase * 1.2) * 0.25
+					: context.distance > attackRange
+						? math.sin(phase * 1.5) * 0.55
+						: 0;
+		const side = math.sin(phase * 0.7) >= 0 ? 1 : -1;
+		const moveDirection = towardTarget.mul(radial).add(aroundTarget.mul(side));
+		context.humanoid.WalkSpeed = HumanoidBaseWalkspeed;
+		context.humanoid.Move(moveDirection.Unit, false);
+		this.brain.npcAnimation.setLocomotion("walk", 1, this.isCombatEquipped(context.model));
 	}
 
 	private handleMovement(context: NeuralContext, speedMultiplier: number): void {

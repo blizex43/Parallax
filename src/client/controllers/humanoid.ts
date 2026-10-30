@@ -1,7 +1,7 @@
 import { WalkspeedChanged } from "shared/constants";
 import type { CharacterController } from "./character";
 import { DeferTask, OnSignalSubscribed } from "shared/decorators";
-import { Controller, type OnStart } from "@flamework/core";
+import { Controller, type OnRender, type OnStart } from "@flamework/core";
 import { CombatState, MiscState, MovementState } from "shared/enums/config-enum";
 import { Janitor } from "@rbxts/janitor";
 import { OnCharacterAnimationsRegistered } from "shared/hooks";
@@ -9,17 +9,13 @@ import type { AnimationController } from "./animation";
 import { HumanoidBaseWalkspeed, HumanoidMoveThreshhold, HumanoidStates } from "shared/enums/humanoid-enum";
 import type { AnimationTrackNames } from "shared/structs/animation";
 import { SuperJanitor } from "shared/classes/super-janitor";
-import { isMovingBackwards } from "shared/utility/basepart";
 import { JournalHandler } from "shared/classes/journal-handler";
 import type { JournalController } from "./journal";
 import { OnJournalEntrySubscribed } from "client/decorators";
 const { min } = math;
 @Controller()
-export class HumanoidController extends JournalHandler implements OnCharacterAnimationsRegistered, OnStart {
-	// public charm!: StateType;
-	// private shiftCharm: StateType<boolean>;
+export class HumanoidController extends JournalHandler implements OnCharacterAnimationsRegistered, OnStart, OnRender {
 	private humanoidJanitor: Janitor = new Janitor();
-	// private sprintCharm: StateType<boolean>;
 	constructor(
 		private readonly character: CharacterController,
 		private readonly animation: AnimationController,
@@ -53,6 +49,9 @@ export class HumanoidController extends JournalHandler implements OnCharacterAni
 		]);
 		this.journalUtil.getPathChanged(CombatState.CombatEquip).Connect(() => this.onSpeedChanged());
 		this.initStates();
+	}
+	public onRender(): void {
+		this.onSpeedChanged();
 	}
 	protected onOverride(): void {
 		this.onSpeedChanged();
@@ -104,28 +103,66 @@ export class HumanoidController extends JournalHandler implements OnCharacterAni
 		const humanoid = this.character.getHumanoid();
 		const root = this.character.getRoot();
 		if (!character || !humanoid || !root || this.isBlacklisted()) return;
-		const [idleName, walkName] = <[AnimationTrackNames, AnimationTrackNames]>[
-			this.journalUtil.read<boolean>(CombatState.CombatEquip) ? "style_idle" : "idle",
-			this.journalUtil.read<boolean>(CombatState.CombatEquip) ? "style_walk" : "walk",
-		];
+		const styleEquipped = this.journalUtil.read<boolean>(CombatState.CombatEquip) ?? false;
+		const preferredIdle: AnimationTrackNames = styleEquipped ? "style_idle" : "idle";
+		const idleName = this.animation.getTrack(character, preferredIdle)
+			? preferredIdle
+			: styleEquipped
+				? "idle"
+				: preferredIdle;
+		const useStyleWalk = styleEquipped && this.animation.getTrack(character, "style_walk") !== undefined;
+		const walkName = this.getDirectionalWalk(
+			character,
+			root,
+			humanoid,
+			useStyleWalk,
+			useStyleWalk ? "style_walk" : "walk",
+		);
 		const moving = humanoid.MoveDirection.Magnitude > HumanoidMoveThreshhold;
-		let speedMul = min(1.2, humanoid.WalkSpeed / HumanoidBaseWalkspeed);
-		if (isMovingBackwards(root, humanoid)) speedMul = -speedMul;
-		if (moving && !this.animation.isPlaying(character, walkName) && !this.isWhitelisted())
-			this.animation.playAnim(character, walkName, true, { speed: speedMul });
+		const isSprinting =
+			moving &&
+			this.journalUtil.read<boolean>(MovementState.Sprint) === true &&
+			this.animation.getTrack(character, "sprint") !== undefined;
+		const locomotionName = isSprinting ? "sprint" : walkName;
+		const speedMul = min(1.2, humanoid.WalkSpeed / HumanoidBaseWalkspeed);
+		if (moving && !this.animation.isPlaying(character, locomotionName) && !this.isWhitelisted())
+			this.animation.playAnim(character, locomotionName, true, { speed: speedMul });
 		else if (
 			(!moving || this.isWhitelisted()) &&
-			(!this.animation.isPlaying(character, idleName) || this.animation.isPlaying(character, walkName))
+			(!this.animation.isPlaying(character, idleName) || this.animation.isPlaying(character, locomotionName))
 		)
 			this.animation.playAnim(character, idleName);
-		this.adjust(character, speedMul, walkName);
+		this.adjust(character, speedMul, locomotionName);
+	}
+	private getDirectionalWalk(
+		character: CharacterModel,
+		root: BasePart,
+		humanoid: Humanoid,
+		styleEquipped: boolean,
+		defaultName: AnimationTrackNames,
+	): AnimationTrackNames {
+		const localDirection = root.CFrame.VectorToObjectSpace(humanoid.MoveDirection);
+		let directionalName: AnimationTrackNames;
+		if (math.abs(localDirection.X) > math.abs(localDirection.Z))
+			directionalName = styleEquipped
+				? localDirection.X > 0
+					? "style_walkright"
+					: "style_walkleft"
+				: localDirection.X > 0
+					? "walkright"
+					: "walkleft";
+		else if (localDirection.Z > 0) directionalName = styleEquipped ? "style_walkback" : "walkback";
+		else return defaultName;
+
+		return this.animation.getTrack(character, directionalName) ? directionalName : defaultName;
 	}
 	@DeferTask()
 	public onCharacterAnimationsRegistered(character: CharacterModel): void {
+		if (character !== this.character.get()) return;
 		this.humanoidJanitor.Cleanup();
 		this.humanoidJanitor.AddPromise(
 			this.character.mustGetHumanoid().then((humanoid) => {
-				this.animation.playAnim(character, "idle");
+				this.onSpeedChanged();
 				this.humanoidJanitor.Add(
 					humanoid.GetPropertyChangedSignal("MoveDirection").Connect(() => this.onSpeedChanged()),
 				);

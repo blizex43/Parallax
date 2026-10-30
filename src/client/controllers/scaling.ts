@@ -1,14 +1,7 @@
 import { Controller } from "@flamework/core";
 import type { ReplicaController } from "./replica";
 import type { ClientScaleDashKeys } from "shared/structs/scale";
-import {
-	BaseDensity,
-	BuffPerStat,
-	IncrementPerSpeedStat,
-	MaxDashScaled,
-	MaxSpeedScaled,
-	StatMultiplierPerDash,
-} from "shared/enums/scale-enum";
+import { StatTuning } from "shared/enums/scale-enum";
 import { MovementConfig, MovementState } from "shared/enums/config-enum";
 import { HumanoidBaseWalkspeed } from "shared/enums/humanoid-enum";
 import { scaleNumberWithPer, sum } from "shared/utility/numbers";
@@ -18,15 +11,20 @@ export class ScalingController {
 	constructor(private readonly replica: ReplicaController) {}
 	public getDash(baseDash: number, dashType: ClientScaleDashKeys): number {
 		const data = this.replica.getData();
-		const hostPer = StatMultiplierPerDash[dashType];
-		const hostMax = MaxDashScaled[dashType];
-		baseDash += scaleNumberWithPer(data.agility, BuffPerStat.agility, hostPer.agility, 0, hostMax.agility, true);
+		const isDistance = dashType === "dashdistance";
+		const agilityIncrement = isDistance
+			? StatTuning.dash.increment.distance
+			: StatTuning.dash.increment.powerAgility;
+		const muscleIncrement = isDistance ? StatTuning.dash.increment.distance : StatTuning.dash.increment.powerMuscle;
+		const agilityCap = StatTuning.dash.cap.agility;
+		const muscleCap = isDistance ? StatTuning.dash.cap.distanceMuscle : StatTuning.dash.cap.powerMuscle;
+		baseDash += scaleNumberWithPer(data.agility, StatTuning.per.agility, agilityIncrement, 0, agilityCap, true);
 		baseDash += scaleNumberWithPer(
 			data.lowerBodyMuscle,
-			BuffPerStat.lowerBodyMuscle,
-			hostPer.lowerBodyMuscle,
-			BaseDensity.Muscle,
-			hostMax.lowerBodyMuscle,
+			StatTuning.per.lowerBodyMuscle,
+			muscleIncrement,
+			StatTuning.baseDensity.muscle,
+			muscleCap,
 			true,
 		);
 		return baseDash;
@@ -37,24 +35,17 @@ export class ScalingController {
 		const totalMuscle = sum(data.lowerBodyMuscle, data.upperBodyMuscle);
 		baseSpeed += scaleNumberWithPer(
 			data.agility,
-			BuffPerStat.agility,
-			IncrementPerSpeedStat.agility,
+			StatTuning.per.agility,
+			StatTuning.runSpeed.agilityPerPoint,
 			0,
-			MaxSpeedScaled.agility,
+			StatTuning.runSpeed.cap.agility,
 		);
 		baseSpeed -= scaleNumberWithPer(
 			totalMuscle,
-			BuffPerStat.lowerBodyMuscle,
-			IncrementPerSpeedStat.lowerBodyMuscle,
-			BaseDensity.Muscle,
-			MaxSpeedScaled.lowerBodyMuscle,
-		);
-		baseSpeed -= scaleNumberWithPer(
-			totalMuscle,
-			BuffPerStat.upperBodyMuscle,
-			IncrementPerSpeedStat.upperBodyMuscle,
-			BaseDensity.Muscle,
-			MaxSpeedScaled.upperBodyMuscle,
+			StatTuning.per.lowerBodyMuscle,
+			StatTuning.runSpeed.musclePenaltyPerPoint,
+			StatTuning.baseDensity.muscle,
+			StatTuning.runSpeed.cap.muscle,
 		);
 		return max(baseSpeed, this.getNormalWalkSpeed());
 	}

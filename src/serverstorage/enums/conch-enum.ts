@@ -3,12 +3,11 @@ import type { RegistryType } from "shared/structs/conch";
 import type { NPCPresetType } from "shared/structs/npc";
 import kick_cmd from "serverstorage/conch/commands/kick";
 import spawn_cmd from "serverstorage/conch/commands/spawn";
-import { type PlayerData } from "shared/data-models/player-data";
+import type { PlayerData } from "shared/data-models/player-data";
 import teleport_cmd from "serverstorage/conch/commands/teleport";
 import set_cmd from "serverstorage/conch/commands/set";
 import debug_cmd from "serverstorage/conch/commands/debug";
 import query_cmd from "serverstorage/conch/commands/query";
-
 import { ConchPresets } from "shared/enums/conch-enum";
 
 export const ConchRegistry: RegistryType = {

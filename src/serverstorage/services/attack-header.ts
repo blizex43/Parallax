@@ -23,6 +23,8 @@ import { Meta } from "shared/meta";
 import { PostWindowData } from "shared/constants";
 import { CombatState } from "shared/enums/config-enum";
 import type { JournalService } from "./journal";
+import type { DodgeService } from "./dodge";
+import type { AnomalyService } from "./anomaly";
 @Service({ loadOrder: 5000 })
 export class AttackHeaderService {
 	private readonly runningAttacks: Map<CharacterModel, Record<AttackLiterals, Promise<void>>> = new Map();
@@ -32,7 +34,9 @@ export class AttackHeaderService {
 		private readonly database: DataService,
 		private readonly guid: GUIDService,
 		private readonly journal: JournalService,
-	) { }
+		private readonly dodge: DodgeService,
+		private readonly anomaly: AnomalyService,
+	) {}
 
 	@LinkSerializedRemote(Events.game.attack, Serializers.attack)
 	public async onAttackRecieved(player: Player, packet: AttackPacket): Promise<void> {
@@ -125,7 +129,9 @@ export class AttackHeaderService {
 			packet,
 			data,
 			scaling,
+			isSkill: handler.lib.tags.includes("Skill"),
 		};
+		if (context.isSkill) context.assaultDamageMultiplier = this.anomaly.consumePhysicalAssault(character, data);
 		return this.addAttackToCache(context, handler.invoked(context));
 	}
 
@@ -135,12 +141,13 @@ export class AttackHeaderService {
 		return handler.cancelled(context);
 	}
 
-	private addAttackToCache<T extends Promise<void>>(context: AttackContext, promise: T): T {
+	private addAttackToCache(context: AttackContext, promise: Promise<void>): Promise<void> {
+		const trackedPromise = promise.finally(() => this.dodge.clearEvadedAttack(context));
 		let cache = this.runningAttacks.get(context.character);
 		cache ??= <Record<AttackLiterals, Promise<void>>>{};
-		cache[context.packet.name] = promise;
+		cache[context.packet.name] = trackedPromise;
 		this.runningAttacks.set(context.character, cache);
-		return promise;
+		return trackedPromise;
 	}
 
 	private get(attackName: AttackLiterals, tryGet: boolean = true) {

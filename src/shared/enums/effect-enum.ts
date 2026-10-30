@@ -2,7 +2,7 @@ import { ReplicatedStorage } from "@rbxts/services";
 import type { EffectContext, EffectName } from "shared/structs/effect";
 
 // Add effect names to EffectTable, then configure their asset and playback here.
-// Simple effects use CatalogEffect automatically; add keyframes to chain other effects.
+// Use a handler module from effect-library for custom behavior; custom-template is a reusable starting point.
 export const EffectTable = <const>[
 	"Footstep",
 	"Basic-Trail",

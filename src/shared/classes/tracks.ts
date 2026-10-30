@@ -148,6 +148,9 @@ export abstract class TrackHandler {
 	private getOverrideName(animName: string): AnimationTrackNames {
 		if (animName.sub(animName.size() - 4) === ":idle") return "style_idle";
 		if (animName.sub(animName.size() - 4) === ":walk") return "style_walk";
+		if (animName.sub(animName.size() - 8) === ":walkback") return "style_walkback";
+		if (animName.sub(animName.size() - 8) === ":walkleft") return "style_walkleft";
+		if (animName.sub(animName.size() - 9) === ":walkright") return "style_walkright";
 		return <AnimationTrackNames>animName;
 	}
 

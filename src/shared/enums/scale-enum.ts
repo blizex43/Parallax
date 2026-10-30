@@ -1,132 +1,94 @@
-import type { MockScaleDependencies, ScaleClass, ScalingDependencyKey } from "shared/structs/scale";
+import type { MockScaleDependencies, ScaleClass } from "shared/structs/scale";
 
-export const MaxStatsScaled: Record<ScalingDependencyKey, number> = {
-	height: 2,
-	impulse: 2000,
-	strength: 7000,
-	vigor: 2500,
-	intellect: 700,
-	agility: 2000,
-	stamina: 3700,
-	upperBodyMuscle: 3500,
-	lowerBodyMuscle: 3500,
-	fat: 400,
-};
-
-export const BaseDensity = <const>{
-	Muscle: 120,
-	Fat: 25,
-};
-
-export const BuffPerStat: Record<ScalingDependencyKey, number> = {
-	strength: 1,
-	impulse: 1,
-	vigor: 1,
-	agility: 1,
-	intellect: 1,
-	stamina: 1,
-	height: 0.01,
-	upperBodyMuscle: 1,
-	lowerBodyMuscle: 1,
-	fat: 1,
-};
-
-export const IncrementPerStat: Record<ScalingDependencyKey, number> = {
-	strength: 0.02, //  damage per 1
-	impulse: 0.0003, // animation speed per 1
-	vigor: 1, // health per 1
-	agility: 0.02, // runspeed speed per 1
-	intellect: 1, // intellect/anomaly mastery per 1
-	stamina: 1, // stamina per 1
-	height: 0.003, // range per 0.01
-	upperBodyMuscle: 0.016, // damage per 1
-	lowerBodyMuscle: 0.016, // damage per 1
-	fat: 1, // health per 1
-};
-
-export const StunIncrementPerStat: Partial<Record<ScalingDependencyKey, number>> = {
-	upperBodyMuscle: 0.0003, // stun duration per 1 max 1750
-	lowerBodyMuscle: 0.0003, // stun duration per 1 max 1750
-	fat: 0.001, // stun per 1 max scaled
-};
-
-export const DebuffIncrementPerStat: Partial<Record<ScalingDependencyKey, number>> = <const>{
-	upperBodyMuscle: 0.00033, // debuff animation speed per 1 max 1500
-	lowerBodyMuscle: 0.00033, // debuff animation speed per 1 max 1500
-};
-
-export const BaseHealthMultiplier = <const>{
-	upperBodyMuscle: 0.0005,
-	lowerBodyMuscle: 0.0005,
-	fat: 0.008,
-};
-
-export const BaseStaminaMultiplier = <const>{
-	upperBodyMuscle: 0.0005,
-	lowerBodyMuscle: 0.0005,
-	fat: 0.008,
-};
-
-export const IncrementPerSpeedStat = <const>{
-	agility: IncrementPerStat.agility,
-	upperBodyMuscle: 0.008, // debuff walkspeed per 1
-	lowerBodyMuscle: 0.008, // debuff walkspeed per 1
-	fat: 0.006, // debuff walkspeed per 1
-};
-
-export const StaminaDashIncrementPerStat = <const>{
-	upperBodyMuscle: 0.001, // debuff stamina dash percentage per 1
-	lowerBodyMuscle: 0.001, // debuff stamina dash percentage per 1
-	fat: 0.001, // debuff stamina dash percentage per 1
-};
-
-export const StaminaSprintIncrementPerStat = <const>{
-	upperBodyMuscle: 0.025, // debuff stamina sprint per 1
-	lowerBodyMuscle: 0.03, // debuff stamina sprint per 1
-	agility: 0.025, // debuff stamina sprint per 1
-};
-
-export const StatMultiplierPerSpeed = <const>{
-	agility: 0.02,
-	lowerBodyMuscle: 0.03, // NEGATIVE
-	upperBodyMuscle: 0.03, // NEGATIVE
-};
-
-export const MaxDashScaled = <const>{
-	dashdistance: {
-		lowerBodyMuscle: 2500,
+// Keep balance values together so changing a stat has one obvious home.
+export const StatTuning = <const>{
+	cap: {
+		height: 2,
+		impulse: 2000,
+		strength: 7000,
+		vigor: 2500,
+		intelligence: 700,
 		agility: 2000,
+		stamina: 3700,
+		upperBodyMuscle: 3500,
+		lowerBodyMuscle: 3500,
+		fat: 400,
 	},
-	dashpower: {
-		lowerBodyMuscle: 2500,
-		agility: 2000,
+	per: {
+		strength: 1,
+		impulse: 1,
+		vigor: 1,
+		agility: 1,
+		intelligence: 1,
+		stamina: 1,
+		height: 0.01,
+		upperBodyMuscle: 1,
+		lowerBodyMuscle: 1,
+		fat: 1,
+	},
+	increment: {
+		strength: 0.02,
+		impulse: 0.0003,
+		vigor: 1,
+		agility: 0.02,
+		intelligence: 1,
+		stamina: 1,
+		height: 0.003,
+		upperBodyMuscle: 0.016,
+		lowerBodyMuscle: 0.016,
+		fat: 1,
+	},
+	baseDensity: {
+		muscle: 120,
+		fat: 25,
+	},
+	characterScale: {
+		base: 0.9,
+		muscle: 0.08,
+		fat: 0.08,
+		height: 0.1,
+	},
+	attack: {
+		damage: {
+			strength: 0.5,
+			upperBodyMuscle: 0.25,
+			lowerBodyMuscle: 0.25,
+		},
+		speed: {
+			base: 0.86,
+			minimum: 0.8,
+			maximum: 1.2,
+			impulseCap: 250,
+			agilityCap: 250,
+			muscleCap: 1000,
+			impulseBonus: 0.14,
+			agilityBonus: 0.12,
+			musclePenalty: 0.06,
+		},
+		stun: {
+			base: 0.9,
+			minimum: 0.85,
+			maximum: 1.15,
+			muscleBonus: 0.15,
+			fatBonus: 0.05,
+		},
+	},
+	runSpeed: {
+		cap: { agility: 2000, muscle: 2500 },
+		agilityPerPoint: 0.02,
+		musclePenaltyPerPoint: 0.008,
+	},
+	dash: {
+		cap: { distanceMuscle: 2500, agility: 2000, powerMuscle: 2500 },
+		increment: { distance: 0.000008, powerMuscle: 0.035, powerAgility: 0.005 },
+	},
+	stamina: {
+		sprintIncrement: { upperBodyMuscle: 0.025, lowerBodyMuscle: 0.03, agility: 0.025 },
+		dashIncrement: { upperBodyMuscle: 0.001, lowerBodyMuscle: 0.001, fat: 0.001 },
 	},
 };
 
-export const MaxSpeedScaled = <const>{
-	agility: 2000,
-	lowerBodyMuscle: 2500,
-	upperBodyMuscle: 2500,
-};
-
-export const ScaleMultipliers = {
-	Base: 0.9,
-	Muscle: 0.08,
-	Fat: 0.08,
-	Height: 0.1,
-};
 export const ScaleClassTable = <const>["Lower", "Lower-Mid", "Mid", "Mid-High", "High", "High-Ext", "Ext"];
-
-export const StatMultiplierPerDash = <const>{
-	dashdistance: {
-		lowerBodyMuscle: 0.000008,
-		agility: 0.000008,
-	},
-	dashpower: {
-		lowerBodyMuscle: 0.035,
-		agility: 0.005,
-	},
-};
 
 export const MockScaleClassDependencies: Record<ScaleClass, MockScaleDependencies> = {
 	Lower: {
@@ -137,7 +99,7 @@ export const MockScaleClassDependencies: Record<ScaleClass, MockScaleDependencie
 		impulse: [200, 400],
 		vigor: [200, 400],
 		agility: [200, 400],
-		intellect: [100, 200],
+		intelligence: [100, 200],
 		stamina: [100, 300],
 		fat: [0, 0],
 	},
@@ -149,7 +111,7 @@ export const MockScaleClassDependencies: Record<ScaleClass, MockScaleDependencie
 		impulse: [400, 700],
 		vigor: [400, 700],
 		agility: [400, 700],
-		intellect: [200, 350],
+		intelligence: [200, 350],
 		stamina: [400, 600],
 		fat: [0, 0],
 	},
@@ -161,7 +123,7 @@ export const MockScaleClassDependencies: Record<ScaleClass, MockScaleDependencie
 		impulse: [700, 1000],
 		vigor: [700, 1000],
 		agility: [700, 1000],
-		intellect: [350, 500],
+		intelligence: [350, 500],
 		stamina: [600, 1000],
 		fat: [0, 0],
 	},
@@ -173,7 +135,7 @@ export const MockScaleClassDependencies: Record<ScaleClass, MockScaleDependencie
 		impulse: [1000, 1300],
 		vigor: [1000, 1300],
 		agility: [1000, 1300],
-		intellect: [500, 650],
+		intelligence: [500, 650],
 		stamina: [1000, 1300],
 		fat: [0, 0],
 	},
@@ -185,7 +147,7 @@ export const MockScaleClassDependencies: Record<ScaleClass, MockScaleDependencie
 		impulse: [1300, 1600],
 		vigor: [1300, 1600],
 		agility: [1300, 1600],
-		intellect: [650, 800],
+		intelligence: [650, 800],
 		stamina: [1300, 1600],
 		fat: [0, 0],
 	},
@@ -197,7 +159,7 @@ export const MockScaleClassDependencies: Record<ScaleClass, MockScaleDependencie
 		impulse: [1600, 1800],
 		vigor: [1600, 1800],
 		agility: [1600, 1800],
-		intellect: [800, 900],
+		intelligence: [800, 900],
 		stamina: [1600, 1800],
 		fat: [0, 0],
 	},
@@ -209,7 +171,7 @@ export const MockScaleClassDependencies: Record<ScaleClass, MockScaleDependencie
 		impulse: [1800, 2000],
 		vigor: [1800, 2000],
 		agility: [1800, 2000],
-		intellect: [900, 1000],
+		intelligence: [900, 1000],
 		stamina: [1800, 2000],
 		fat: [0, 0],
 	},

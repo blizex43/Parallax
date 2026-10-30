@@ -12,6 +12,8 @@ import type { DamageCalculateService } from "./damage-calculate";
 import type { DamageSendService } from "./damage-send";
 import type { DamageBoolService } from "./damage-bool";
 import type { DamageNotifyService } from "./damage-notify";
+import { DodgeService } from "./dodge";
+import type { AnomalyService } from "./anomaly";
 
 @Service()
 export class DamageService {
@@ -23,11 +25,14 @@ export class DamageService {
 		private readonly notify: DamageNotifyService,
 		private readonly journal: JournalService,
 		private readonly calculate: DamageCalculateService,
-	) { }
+		private readonly dodge: DodgeService,
+		private readonly anomaly: AnomalyService,
+	) {}
 	@OnSignalSubscribed(DamageRecieved)
 	public async query(context: HitData): Promise<void> {
 		//// Prerequisites
 		if (!this.determine(context)) return;
+		if (this.dodge.tryEvade(context)) return;
 		//// GET
 		const attackedPlayer = Players.GetPlayerFromCharacter(context.attacked.character);
 		const attackedData = attackedPlayer
@@ -44,6 +49,7 @@ export class DamageService {
 		//// GET, SEND & CALC
 		if (tree.blocked) tree.blockBroken = this.bool.bool_blockBreak(context);
 		if (tree.clashed) this.sender.async_send_clash(context);
+		this.anomaly.processHit(context, attackedData, tree);
 		this.sender.send_cframe(context, tree);
 		if (context.properties.knockback) tree.knockback = this.calculate.calculate_knockback(context);
 		if (context.properties.flinchName) tree.flinchName = context.properties.flinchName;

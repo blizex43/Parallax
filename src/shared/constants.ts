@@ -29,6 +29,7 @@ export function createFlameworkCharms() {
 		[CombatState.Windup]: atom(false),
 		[CombatState.AttackExecutable]: atom(true),
 		[CombatState.Attacking]: atom(false),
+		[CombatState.Dodge]: atom(false),
 		[CombatState.Stunned]: atom(false),
 		[CombatState.Knocked]: atom(false),
 		[CombatState.Ragdoll]: atom(false),

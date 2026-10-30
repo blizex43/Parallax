@@ -11,6 +11,7 @@ import { DamageRecieved, PostWindowData } from "shared/constants";
 import { CombatState } from "shared/enums/config-enum";
 import { CastEnums } from "shared/enums/cast-enum";
 import { StyleCatalog } from "shared/enums/style-catalog-enum";
+import { ClanAnomalyCatalog } from "shared/enums/anomaly-enum";
 import { AnimationTrackNames } from "shared/structs/animation";
 import type {
 	AnomalySpec,
@@ -24,11 +25,13 @@ import type {
 import type { CharacterLimbsType } from "shared/structs/model";
 import type { EffectPacket } from "shared/structs/packets";
 import type { Styles } from "shared/structs/styles";
+import type { ClanLiterals } from "shared/structs/info";
 import { Players } from "@rbxts/services";
 import type { HitboxValidationService } from "serverstorage/services/hitbox-validation";
 import type { AnimationReplicatorService } from "serverstorage/services/animation-replicator";
 import { HitboxAttributes } from "serverstorage/enums/hitbox-enum";
 import { AttackTimingCatalog } from "shared/enums/attack-timing-enum";
+import { getStyleAttributeOffset, getStyleAttributeScale } from "shared/utility/style-scaling";
 export abstract class AttackExtendable {
 	abstract readonly lib: AttackDefinition;
 	abstract readonly nameof: AttackLiterals;
@@ -52,7 +55,8 @@ export abstract class AttackExtendable {
 			properties: {
 				damage:
 					this.getStyleAttribute(context.data.style, "damage") *
-					(window.onHit.damage + context.scaling.attack.damage),
+					(window.onHit.damage + context.scaling.attack.damage) *
+					(context.assaultDamageMultiplier ?? 1),
 				stun: {
 					duration: this.getStyleAttribute(context.data.style, "stun") * context.scaling.attack.stun,
 					type: window.onHit.stun.type,
@@ -64,7 +68,8 @@ export abstract class AttackExtendable {
 				ailments: window.onHit.ailments,
 				breaker: window.onHit.breaker,
 				hitEffects: window.onHit.hitEffects,
-				anomaly: this.getAnomalies(context.data.style, window),
+				anomaly: this.getAnomalies(context.data.style, context.data.clan, window),
+				element: context.data.clan === "Mikazuchi" && context.isSkill ? "Electric" : this.lib.element,
 				staminaBlock: window.onHit.staminaBlock,
 			},
 		};
@@ -336,8 +341,7 @@ export abstract class AttackExtendable {
 		attribute: "damage" | "stun" | "speed" | "range",
 		defaultValue = 1,
 	): number {
-		const entry = StyleCatalog[style][attribute];
-		return entry.included.includes(this.nameof) ? entry.potency : defaultValue;
+		return getStyleAttributeScale(style, attribute, this.nameof, defaultValue);
 	}
 
 	protected getStyleOffset(
@@ -345,14 +349,17 @@ export abstract class AttackExtendable {
 		attribute: "damage" | "stun" | "speed" | "range",
 		defaultValue = 1,
 	): number {
-		const entry = StyleCatalog[style][attribute];
-		return entry.included.includes(this.nameof) && entry.offset ? entry.offset : defaultValue;
+		return getStyleAttributeOffset(style, attribute, this.nameof, defaultValue);
 	}
 
-	private getAnomalies(style: Styles, window: HitWindow): Maybe<AnomalySpec[]> {
-		const entry = StyleCatalog[style]["anomaly"];
-		if (!entry) return window.onHit.anomaly;
-		const winAnomaly = window.onHit.anomaly ?? [];
-		return [...entry, ...winAnomaly];
+	private getAnomalies(style: Styles, clan: ClanLiterals, window: HitWindow): Maybe<AnomalySpec[]> {
+		const styleAnomalies = StyleCatalog[style].anomaly ?? [];
+		const clanAnomalies = ClanAnomalyCatalog[clan] ?? [];
+		const anomalies = [...styleAnomalies, ...(clanAnomalies ?? []), ...(window.onHit.anomaly ?? [])];
+		return anomalies.filter(
+			(anomaly) =>
+				anomaly.included.includes(this.nameof) &&
+				(!anomaly.requiredTag || this.lib.tags.includes(anomaly.requiredTag)),
+		);
 	}
 }

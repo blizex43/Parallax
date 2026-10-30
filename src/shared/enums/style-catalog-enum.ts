@@ -96,4 +96,36 @@ export const StyleCatalog: Record<Styles, StyleContext> = <const>{
 			included: ["Light", "Heavy"],
 		},
 	},
+	Raishin: {
+		damage: {
+			potency: 1,
+			included: ["Light", "Heavy"],
+		},
+		speed: {
+			potency: 1,
+			included: ["Light", "Heavy"],
+		},
+		range: {
+			potency: 1,
+			included: ["Light", "Heavy"],
+		},
+		stun: {
+			potency: 1,
+			included: ["Light", "Heavy"],
+		},
+		anomaly: [
+			{
+				type: "Physical",
+				included: ["Light"],
+				potency: 4,
+				allowOffElementBuild: true,
+			},
+			{
+				type: "Electric",
+				included: ["Light"],
+				potency: 4,
+				allowOffElementBuild: true,
+			},
+		],
+	},
 };

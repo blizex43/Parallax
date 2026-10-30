@@ -14,7 +14,7 @@ export type StanceLiterals = (typeof StanceArray)[number];
 export type ModeLiterals = (typeof ModeArray)[number];
 export type AilmentsLiterals = (typeof AilmentsArray)[number];
 export type AnomalyLiterals = (typeof AnomalyArray)[number];
-export type AttackTag = "Melee" | "Grab" | "Barrage" | "Projectile";
+export type AttackTag = "Melee" | "Grab" | "Barrage" | "Projectile" | "Skill";
 
 export interface AttackPhase {
 	windup: number;
@@ -94,7 +94,10 @@ export interface StunSpec {
 export interface BreakerSpec {
 	properties?: OnHitProperties;
 	duration: number;
+	tier?: GuardbreakTier;
 }
+
+export type GuardbreakTier = "Tier1" | "Tier2";
 
 export interface AilmentSpec {
 	ailment: AilmentsLiterals;
@@ -119,6 +122,8 @@ export interface StyleAttributeSpec {
 
 export interface AnomalySpec extends StyleAttributeSpec {
 	type: AnomalyLiterals;
+	allowOffElementBuild?: boolean;
+	requiredTag?: AttackTag;
 }
 export interface OnHitProperties {
 	damage: number;
@@ -133,6 +138,7 @@ export interface OnHitProperties {
 	hitEffects?: EffectName[];
 	ailments?: AilmentSpec[];
 	anomaly?: AnomalySpec[];
+	element?: AnomalyLiterals;
 }
 export interface HitWindow {
 	linger: number;
@@ -156,6 +162,7 @@ export interface AttackDefinition {
 	special?: HitWindow[];
 	hitPolicy: HitPolicy;
 	effect?: EffectSpec;
+	element?: AnomalyLiterals;
 }
 
 export interface AttackContext {
@@ -163,6 +170,8 @@ export interface AttackContext {
 	data: PsuedoPlayerData;
 	scaling: ScalingParams;
 	packet: AttackPacket;
+	assaultDamageMultiplier?: number;
+	isSkill?: boolean;
 }
 
 export interface ClientHitboxWindow {

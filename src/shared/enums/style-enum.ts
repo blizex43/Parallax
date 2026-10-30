@@ -1,1 +1,1 @@
-export const StyleTableEnum = <const>["Base", "Muay Thai", "Karate", "Boxing", "Taekwondo"];
+export const StyleTableEnum = <const>["Base", "Muay Thai", "Karate", "Boxing", "Taekwondo", "Raishin"];
