@@ -31,6 +31,8 @@ export class ROLLBACKQuery implements RoSQLQueryCommandsFunctions {
 
 	public async do(manager: RoSQLManager, input: SQLParsedReturns): Promise<unknown> {
 		if (!manager.configuration.allowRollback) throw errorFormat(`ROLLBACK is disabled.`);
+		if (manager.type === "firebase") return await this.rollbackFirebase(manager, input);
+
 		const existingCommits = await manager.databaseMethods.get<Record<string, DataFileType[]>>(
 			<string>`${manager.configuration.commitPrefix}${input.tableName}`,
 		);
@@ -62,6 +64,66 @@ export class ROLLBACKQuery implements RoSQLQueryCommandsFunctions {
 		return infoFormat(
 			`Table '${input.tableName}' has been rolled back to the latest commit successfully. Commit Name: [${commitName ?? correctCommitName}]`,
 		);
+	}
+
+	private async rollbackFirebase(manager: RoSQLManager, input: SQLParsedReturns): Promise<unknown> {
+		const existingOptions = <ROSQLOptionsArchitecture>(
+			((await manager.databaseMethods.get<ROSQLOptionsArchitecture>(
+				`${manager.configuration.metadataPrefix}${input.tableName}`,
+			)) ?? {})
+		);
+		const history = <Record<string, CommitHistoryType>>existingOptions[manager.configuration.commitHistoryName];
+		let commitName: Maybe<string> = input.values[0];
+		const latestCommitName = <Maybe<string>>existingOptions["latest-commit"];
+		if (!commitName && latestCommitName && history?.[latestCommitName]) commitName = latestCommitName;
+		if (!commitName && history) commitName = this.getLatestCommitName(manager, history);
+
+		if (!commitName) {
+			const existingCommits = await manager.databaseMethods.get<Record<string, DataFileType[]>>(
+				`${manager.configuration.commitPrefix}${input.tableName}`,
+			);
+			if (!existingCommits || objectSize(existingCommits) === 0)
+				throw errorFormat(`The commits for '${input.tableName}' have not been found!`);
+			commitName = this.getCommitFromRecord(existingCommits)[0];
+		}
+
+		const commitMetadata = history?.[commitName];
+		const storageKey = commitMetadata?.["storage-key"] ?? commitName;
+		const commitData = await manager.databaseMethods.get<Record<string, DataFileType>>(
+			`${manager.configuration.commitPrefix}${input.tableName}/${storageKey}`,
+		);
+		if (!commitData) throw errorFormat(`The requested commit: [${commitName}] has not been found in the database.`);
+
+		if (commitMetadata?.["storage-key"]) {
+			await manager.databaseMethods.updateAsync<Record<string, DataFileType>>(
+				input.tableName,
+				(previous) => {
+					previous ??= {};
+					for (const [userId, playerData] of pairs(commitData)) previous[userId] = playerData;
+					return [previous];
+				},
+				{ prefix: "", useMetadata: false },
+			);
+		} else {
+			await manager.databaseMethods.set(input.tableName, commitData);
+		}
+
+		return infoFormat(
+			`Table '${input.tableName}' has been rolled back to the commit successfully. Commit Name: [${commitName}]`,
+		);
+	}
+
+	private getLatestCommitName(manager: RoSQLManager, history: Record<string, CommitHistoryType>): Maybe<string> {
+		let latestName: Maybe<string>;
+		let latestDate = "";
+		for (const [name, metadata] of pairs(history)) {
+			const date = metadata[manager.configuration.commitLastUpdatedName] ?? "";
+			if (!latestName || date > latestDate) {
+				latestName = name;
+				latestDate = date;
+			}
+		}
+		return latestName;
 	}
 
 	private getLatestCommits(

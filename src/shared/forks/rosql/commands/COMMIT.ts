@@ -30,27 +30,40 @@ export class COMMITQuery implements RoSQLQueryCommandsFunctions {
 
 	public async do(manager: RoSQLManager, input: SQLParsedReturns): Promise<unknown> {
 		if (!manager.configuration.allowCommit) throw errorFormat(`COMMIT is disabled.`);
-		const existingTable = await manager.databaseMethods.get<DataFileType[]>(input.tableName);
-		if (!existingTable)
-			throw errorFormat(
-				`Table '${input.tableName}' does not exist! Cannot backup (commit) a table that does not exist.`,
-			);
 		const commitDate = DateTime.now().ToIsoDate();
 		const commitName = input.values.isEmpty() ? appendWithSha256() : input.values[0];
-		await manager.databaseMethods.updateAsync<Record<string, DataFileType[]>>(
-			`${input.tableName}`,
-			(previousCommit, previousMetadata) => {
-				previousCommit ??= <Record<string, DataFileType[]>>{};
-				if (!previousMetadata)
-					throw errorFormat(
-						`Unable to assume commit metadata. You need to enable Metadata for this table to use COMMIT.`,
-					);
-				this.fillCommitOptions(manager, previousMetadata, commitName, commitDate);
-				previousCommit[commitName] = existingTable;
-				return [previousCommit, previousMetadata];
-			},
-			{ prefix: manager.configuration.commitPrefix, useMetadata: true },
-		);
+		if (manager.type === "firebase") {
+			await manager.databaseMethods.updateAsync<ROSQLOptionsArchitecture>(
+				input.tableName,
+				(previousMetadata) => {
+					previousMetadata ??= <ROSQLOptionsArchitecture>{};
+					this.fillCommitOptions(manager, previousMetadata, commitName, commitDate, appendWithSha256());
+					return [previousMetadata];
+				},
+				{ prefix: manager.configuration.metadataPrefix, useMetadata: false },
+			);
+			await manager.capturePlayersInLatestCommit(input.tableName);
+		} else {
+			const existingTable = await manager.databaseMethods.get<DataFileType[]>(input.tableName);
+			if (!existingTable)
+				throw errorFormat(
+					`Table '${input.tableName}' does not exist! Cannot backup (commit) a table that does not exist.`,
+				);
+			await manager.databaseMethods.updateAsync<Record<string, DataFileType[]>>(
+				`${input.tableName}`,
+				(previousCommit, previousMetadata) => {
+					previousCommit ??= <Record<string, DataFileType[]>>{};
+					if (!previousMetadata)
+						throw errorFormat(
+							`Unable to assume commit metadata. You need to enable Metadata for this table to use COMMIT.`,
+						);
+					this.fillCommitOptions(manager, previousMetadata, commitName, commitDate);
+					previousCommit[commitName] = existingTable;
+					return [previousCommit, previousMetadata];
+				},
+				{ prefix: manager.configuration.commitPrefix, useMetadata: true },
+			);
+		}
 		return infoFormat(
 			`Table '${input.tableName}' has been backed up (commited) successfully with the alias [${commitName}].`,
 		);
@@ -65,12 +78,17 @@ export class COMMITQuery implements RoSQLQueryCommandsFunctions {
 		options: ROSQLOptionsArchitecture,
 		name: string,
 		date: string,
+		storageKey?: string,
 	): ROSQLOptionsArchitecture {
 		const history = <Record<string, CommitHistoryType>>options[manager.configuration.commitHistoryName] ?? {};
 		options[manager.configuration.autocommitIntervalName] = date;
 		if (name in history)
 			print(infoFormat(`Found existing commit of the same name; '${name}'. Attempting to overwrite...`));
-		history[name] = { [manager.configuration.commitLastUpdatedName]: date };
+		history[name] = {
+			[manager.configuration.commitLastUpdatedName]: date,
+			...(storageKey ? { ["storage-key"]: storageKey } : {}),
+		};
+		if (storageKey) options["latest-commit"] = name;
 		options[manager.configuration.commitHistoryName] = history;
 		return options;
 	}

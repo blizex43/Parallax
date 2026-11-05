@@ -1,6 +1,7 @@
 import { now } from "shared/utility/time";
 import { RoSQLParser } from "./parser";
 import type {
+	CommitHistoryType,
 	ConditionalTableType,
 	DatabaseType,
 	DataFileType,
@@ -79,7 +80,10 @@ export abstract class RoSQLManager extends RoSQLParser {
 		forceData: boolean = true,
 	): Promise<[D, boolean, string]> {
 		const existing = this.getPlayerData(player);
-		if (existing) return [<D>existing, true, ""];
+		if (existing) {
+			await this.capturePlayerInLatestCommit(player, existing);
+			return [<D>existing, true, ""];
+		}
 		if (!this.referenceDataFile) throw errorFormat("Reference data file is not defined.");
 		const copy = deepCopy(this.referenceDataFile);
 		const [data, success, response] = await Express.createJob<[D, boolean, string]>({
@@ -106,7 +110,59 @@ export abstract class RoSQLManager extends RoSQLParser {
 		if (data) ReconcileUnadded(<Record<string, unknown>>data, <Record<string, unknown>>copy);
 		(<Writable<typeof data>>data) ??= forceData ? <D>copy : <D>{};
 		this.playerTable.set(player, data);
+		await this.capturePlayerInLatestCommit(player, data);
 		return [<D>data, true, ""];
+	}
+
+	public async capturePlayersInLatestCommit(tableName: string = this.configuration.databaseName): Promise<void> {
+		if (this.type !== "firebase") return;
+		for (const player of Players.GetPlayers()) {
+			const data = this.getPlayerData(player);
+			if (data) await this.capturePlayerInLatestCommit(player, data, tableName);
+		}
+	}
+
+	private async capturePlayerInLatestCommit(
+		player: Player,
+		data: DataFileType,
+		tableName: string = this.configuration.databaseName,
+	): Promise<void> {
+		if (this.type !== "firebase") return;
+		try {
+			const metadata = await this.databaseMethods.get<ROSQLOptionsArchitecture>(
+				`${this.configuration.metadataPrefix}${tableName}`,
+			);
+			if (!metadata) return;
+			const history = <Record<string, CommitHistoryType>>metadata[this.configuration.commitHistoryName];
+			if (!history) return;
+
+			const configuredLatestName = <Maybe<string>>metadata["latest-commit"];
+			let latestCommitName =
+				configuredLatestName && history[configuredLatestName] ? configuredLatestName : undefined;
+			let latestCommit = latestCommitName ? history[latestCommitName] : undefined;
+			if (!latestCommit)
+				for (const [name, commit] of pairs(history))
+					if (
+						!latestCommit ||
+						commit[this.configuration.commitLastUpdatedName] >
+							latestCommit[this.configuration.commitLastUpdatedName]
+					) {
+						latestCommit = commit;
+						latestCommitName = name;
+					}
+			if (!latestCommit) return;
+
+			const storageKey = latestCommit["storage-key"] ?? latestCommitName;
+			if (!storageKey) return;
+			const playerKey = `${this.configuration.commitPrefix}${tableName}/${storageKey}/${player.UserId}`;
+			if (await this.databaseMethods.get<DataFileType>(playerKey)) return;
+
+			const snapshot = deepCopy(data);
+			(<Record<string, unknown>>snapshot)[this.configuration.primaryKeyName] = player.UserId;
+			await this.databaseMethods.set(playerKey, this.encryption(<Record<string, unknown>>snapshot));
+		} catch (err) {
+			warn(`[ROSQL] Failed to add ${player.Name} (${player.UserId}) to the newest commit: ${err}`);
+		}
 	}
 
 	public async savePlayerData(player: Player, data?: object): Promise<void> {

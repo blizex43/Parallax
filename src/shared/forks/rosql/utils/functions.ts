@@ -13,7 +13,7 @@ import type {
 import { allowedConditionSymbols, allowedNativeType, allowedSQLKeywords, defaultSQLConfig } from "../enums";
 import { LocalHost } from "./localhost";
 import { appendWithSha256, stripParentheses } from "./regex-match";
-import { objectSize } from "shared/utility/t-isA";
+import { isObject, objectSize } from "shared/utility/t-isA";
 import { Players } from "@rbxts/services";
 import { RoSQLManager } from "../manager";
 
@@ -147,7 +147,8 @@ export async function constructCustomUpdateAsync(
 					// eslint-disable-next-line prefer-const
 					let [newData, newMetaData] = transformer(oldData, oldMetaData);
 					if (newData && manager.encryption!)
-						for (const data of <Record<string, unknown>[]>newData) manager.encryption(data);
+						for (const data of <Record<string, unknown>[]>newData)
+							if (isObject(data)) manager.encryption(data);
 					await set(`${properties.prefix}${key}`, newData);
 					if (newMetaData && canUseMetaData) await set(`${configuration.metadataPrefix}${key}`, newMetaData);
 					return newData;
