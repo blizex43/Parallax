@@ -1,4 +1,3 @@
-local HttpService = game:GetService("HttpService")
 local roblox = require("@lune/roblox")
 local fs = require("@lune/fs")
 local luau = require("@lune/luau")

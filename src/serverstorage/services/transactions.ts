@@ -5,14 +5,11 @@ import { DataService } from "./third-party/data";
 import Log from "shared/log";
 
 type RewardHandler = (player: Player) => void;
-const enum ProductIDs {
-	// Gold5000 = 1620635951,
-}
 
 @Service()
 export class TransactionsService implements OnInit {
 	private readonly rewardHandlers: Record<number, RewardHandler> = {
-		// [ProductIDs.Gold5000]: player => this.db.increment(player, "gold", 5000)
+		// Register each developer product ID with its reward handler here.
 	};
 
 	public constructor(private readonly data: DataService) {}
@@ -33,7 +30,15 @@ export class TransactionsService implements OnInit {
 			let success = true;
 			try {
 				const grantReward = this.rewardHandlers[ProductId];
-				if (playerExists) grantReward?.(player);
+				if (!grantReward) {
+					success = false;
+					Log.warn(`No reward handler registered for developer product ${ProductId}`);
+				} else if (playerExists) {
+					grantReward(player);
+					const data = this.data.get(player);
+					data.purchaseHistory.push(productKey);
+					this.data.set(player, data);
+				}
 			} catch (err) {
 				success = false;
 				purchaseRecorded = undefined;
